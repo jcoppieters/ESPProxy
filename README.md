@@ -11,10 +11,34 @@ This proxy server:
 - Automatically creates new free connections when clients connect
 - Monitors connection health and automatically restarts if needed
 
-## Questions:
-I find it strange that we have som many heartbeat requests "[215..." followed by response "[72..."
+## Understanding the Traffic
 
-it seems to me there are too many. Can you investigate? even add extra debug code if needed?
+When monitoring with `ENABLE_DATA_LOGGING=true`, you'll see two types of heartbeats:
+
+### 1. Proxy ↔ Cloud Heartbeats (Free Connections)
+```
+[CLOUD] -> [PROXY] (conn #2) Heartbeat request, responding...
+```
+- Message: `[215,3]` (request) / `[72,3]` (response)
+- These happen every ~20 seconds
+- Occur on **free connections** (no device attached)
+- Keep the cloud connection alive
+
+### 2. Cloud Client ↔ Device Heartbeats (Active Connections)
+```
+[CLOUD] -> [DEVICE] (conn #1) Forwarding 8 bytes: [215,1]
+[DEVICE] -> [CLOUD] (conn #1) Forwarding 8 bytes: [72,1]
+```
+- Message: `[215,1]` (request) / `[72,1]` (response)
+- Can happen frequently (every few seconds) in bursts
+- Occur on **active connections** (device attached)
+- These are NOT proxy heartbeats - they're being forwarded between cloud client and device
+- This is normal behavior - the cloud client is checking device health
+
+**Note:** The frequent `[215,1]/[72,1]` messages are expected and indicate an active cloud client connection to your device.
+
+**ERROR:**
+NO, NO: we shouldn't have so many heartbeats !!
 
 
 
