@@ -11,6 +11,13 @@ This proxy server:
 - Automatically creates new free connections when clients connect
 - Monitors connection health and automatically restarts if needed
 
+## Questions:
+I find it strange that we have som many heartbeat requests "[215..." followed by response "[72..."
+
+it seems to me there are too many. Can you investigate? even add extra debug code if needed?
+
+
+
 ## Architecture
 
 ```
