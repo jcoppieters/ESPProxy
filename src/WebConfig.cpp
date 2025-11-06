@@ -4,6 +4,10 @@
 WebConfig::WebConfig(ESPProxy* proxy) {
   this->proxyInstance = proxy;
   this->server = nullptr;
+  
+  // Initialize Preferences early so loadConfig() can use it
+  this->preferences.begin("duotecno", false); // false = read/write mode
+  Serial.println("[CONFIG] Preferences initialized");
 }
 
 WebConfig::~WebConfig() {
@@ -15,8 +19,7 @@ WebConfig::~WebConfig() {
 }
 
 bool WebConfig::begin() {
-  // Initialize Preferences
-  this->preferences.begin("duotecno", false); // false = read/write mode
+  // Preferences already initialized in constructor
   
   // Load or use default mDNS hostname
   this->currentMDNS = this->preferences.getString("mdnsHostname", MDNS_HOSTNAME);
@@ -73,22 +76,46 @@ bool WebConfig::loadConfig(ProxyConfig& config, String& mdnsHostname) {
   }
   
   Serial.println("[CONFIG] Loading configuration from NVRAM...");
+  Serial.println("[CONFIG] ======== NVRAM Contents ========");
   
   // Load all parameters
   this->loadStringParameter("cloudServer", config.cloudServer, sizeof(config.cloudServer), CLOUD_SERVER);
-  this->loadIntParameter("cloudPort", (int&)config.cloudPort, CLOUD_PORT);
-  this->loadStringParameter("masterAddr", config.masterAddress, sizeof(config.masterAddress), MASTER_ADDRESS);
-  this->loadIntParameter("masterPort", (int&)config.masterPort, MASTER_PORT);
-  this->loadStringParameter("uniqueId", config.uniqueId, sizeof(config.uniqueId), UNIQUE_ID);
-  this->loadBoolParameter("debug", config.debug, DEBUG_MODE);
-  mdnsHostname = this->preferences.getString("mdnsHostname", MDNS_HOSTNAME);
+  Serial.print("[CONFIG]   cloudServer: ");
+  Serial.println(config.cloudServer);
   
+  this->loadIntParameter("cloudPort", (int&)config.cloudPort, CLOUD_PORT);
+  Serial.print("[CONFIG]   cloudPort: ");
+  Serial.println(config.cloudPort);
+  
+  this->loadStringParameter("masterAddr", config.masterAddress, sizeof(config.masterAddress), MASTER_ADDRESS);
+  Serial.print("[CONFIG]   masterAddress: ");
+  Serial.println(config.masterAddress);
+  
+  this->loadIntParameter("masterPort", (int&)config.masterPort, MASTER_PORT);
+  Serial.print("[CONFIG]   masterPort: ");
+  Serial.println(config.masterPort);
+  
+  this->loadStringParameter("uniqueId", config.uniqueId, sizeof(config.uniqueId), UNIQUE_ID);
+  Serial.print("[CONFIG]   uniqueId: ");
+  Serial.println(config.uniqueId);
+  
+  this->loadBoolParameter("debug", config.debug, DEBUG_MODE);
+  Serial.print("[CONFIG]   debug: ");
+  Serial.println(config.debug ? "true" : "false");
+  
+  mdnsHostname = this->preferences.getString("mdnsHostname", MDNS_HOSTNAME);
+  Serial.print("[CONFIG]   mdnsHostname: ");
+  Serial.println(mdnsHostname);
+  
+  Serial.println("[CONFIG] ============================");
   Serial.println("[CONFIG] Configuration loaded successfully");
   return true;
 }
 
 bool WebConfig::saveConfig(const ProxyConfig& config, const String& mdnsHostname) {
   Serial.println("[CONFIG] Saving configuration to NVRAM...");
+  Serial.print("[CONFIG] Debug flag being saved: ");
+  Serial.println(config.debug ? "true" : "false");
   
   this->preferences.putString("cloudServer", config.cloudServer);
   this->preferences.putUShort("cloudPort", config.cloudPort);
@@ -152,6 +179,9 @@ void WebConfig::handleSave() {
   // Checkbox: present in POST = checked (true), absent = unchecked (false)
   newConfig.debug = this->server->hasArg("debug");
   
+  Serial.print("[WEB] Debug flag from form: ");
+  Serial.println(newConfig.debug ? "true" : "false");
+  
   // Get mDNS hostname
   String newMDNS = this->currentMDNS;
   if (this->server->hasArg("mdnsHostname")) {
@@ -160,6 +190,13 @@ void WebConfig::handleSave() {
   
   // Save to NVRAM
   if (this->saveConfig(newConfig, newMDNS)) {
+    // Update running proxy instance immediately (without restart)
+    if (this->proxyInstance) {
+      this->proxyInstance->setDebug(newConfig.debug);
+      Serial.print("[WEB] Updated running proxy debug flag to: ");
+      Serial.println(newConfig.debug ? "true" : "false");
+    }
+    
     // Send HTML response with restart button
     String response = R"html(
 <!DOCTYPE html>
@@ -271,6 +308,8 @@ String WebConfig::generateStatusJSON() {
   json += "\"connectionCount\":" + String(this->proxyInstance ? this->proxyInstance->getConnectionCount() : 0) + ",";
   json += "\"freeConnections\":" + String(this->proxyInstance ? this->proxyInstance->getFreeConnectionCount() : 0) + ",";
   json += "\"maxConnections\":" + String(MAX_CONNECTIONS) + ",";
+  json += "\"bytesTransferred\":" + String(this->proxyInstance ? this->proxyInstance->getTotalBytesTransferred() : 0) + ",";
+  json += "\"clientConnections\":" + String(this->proxyInstance ? this->proxyInstance->getTotalClientConnections() : 0) + ",";
   json += "\"uptime\":" + String(millis() / 1000) + ",";
   json += "\"ip\":\"" + ETH.localIP().toString() + "\",";
   json += "\"connections\":[";
@@ -478,6 +517,14 @@ String WebConfig::generateHTML() {
           <div class="value">)rawliteral" + String(MAX_CONNECTIONS) + R"rawliteral(</div>
         </div>
         <div class="status-item">
+          <label>Bytes Transferred</label>
+          <div class="value" id="bytesTransferred">-</div>
+        </div>
+        <div class="status-item">
+          <label>Connections Handled</label>
+          <div class="value" id="clientConnections">-</div>
+        </div>
+        <div class="status-item">
           <label>Uptime</label>
           <div class="value" id="uptime">-</div>
         </div>
@@ -586,9 +633,19 @@ String WebConfig::generateHTML() {
         .then(data => {
           document.getElementById('connCount').textContent = data.connectionCount;
           document.getElementById('freeCount').textContent = data.freeConnections;
+          document.getElementById('bytesTransferred').textContent = formatBytes(data.bytesTransferred);
+          document.getElementById('clientConnections').textContent = data.clientConnections;
           document.getElementById('uptime').textContent = formatUptime(data.uptime);
         })
         .catch(err => console.error('Status update failed:', err));
+    }
+    
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     }
     
     function formatUptime(seconds) {

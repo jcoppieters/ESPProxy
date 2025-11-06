@@ -107,6 +107,10 @@ void Context::loop() {
         
         if (this->cloudSocket && this->cloudSocket->connected()) {
           this->cloudSocket->write(buffer, len);
+          // Track statistics
+          if (g_proxyInstance) {
+            g_proxyInstance->addBytesTransferred(len);
+          }
         }
       }
     }
@@ -153,6 +157,11 @@ void Context::handleDataFromCloud() {
     Serial.print(this->connectionId);
     Serial.println(") New client connection detected");
     
+    // Track statistics - incoming client connection
+    if (g_proxyInstance) {
+      g_proxyInstance->incrementClientConnections();
+    }
+    
     // Connect to the device and forward this initial data
     this->makeDeviceConnection(buffer, len);
     
@@ -174,6 +183,10 @@ void Context::handleDataFromCloud() {
       }
     }
     this->deviceSocket->write(buffer, len);
+    // Track statistics
+    if (g_proxyInstance) {
+      g_proxyInstance->addBytesTransferred(len);
+    }
   }
 }
 
@@ -204,6 +217,10 @@ void Context::makeDeviceConnection(uint8_t* data, size_t len) {
         }
       }
       this->deviceSocket->write(data, len);
+      // Track statistics
+      if (g_proxyInstance) {
+        g_proxyInstance->addBytesTransferred(len);
+      }
 
     } else {
       Serial.println("[PROXY] -> [DEVICE] Failed to connect to device");
@@ -261,6 +278,8 @@ ESPProxy::ESPProxy() {
   this->debug = false;
   this->connectionCount = 0;
   this->lastConnectionCheck = 0;
+  this->totalBytesTransferred = 0;
+  this->totalClientConnections = 0;
   
   for (int i = 0; i < MAX_CONNECTIONS; i++) {
     this->connections[i] = nullptr;

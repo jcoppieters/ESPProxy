@@ -89,6 +89,14 @@ public:
   int getMaxConnections() const { return MAX_CONNECTIONS; }
   const ProxyConfig& getConfig() const { return config; }
   
+  // Statistics getters
+  unsigned long getTotalBytesTransferred() const { return totalBytesTransferred; }
+  unsigned long getTotalClientConnections() const { return totalClientConnections; }
+  
+  // Statistics updaters (called by Context)
+  void addBytesTransferred(size_t bytes) { totalBytesTransferred += bytes; }
+  void incrementClientConnections() { totalClientConnections++; }
+  
 private:
   ProxyConfig config;
   bool debug;
@@ -97,6 +105,10 @@ private:
   int connectionCount;
   
   unsigned long lastConnectionCheck;
+  
+  // Statistics
+  unsigned long totalBytesTransferred;
+  unsigned long totalClientConnections;
   
   void checkConnections();
   void cleanStart(bool restart = false);
