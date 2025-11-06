@@ -27,7 +27,7 @@ struct ProxyConfig {
 class Context {
 public:
   Context(WiFiClient* cloudSocket, const char* master, uint16_t masterPort, 
-          const char* server, uint16_t serverPort, const char* uniqueId, int id);
+          const char* server, uint16_t serverPort, const char* uniqueId, int id, bool* debugPtr);
   ~Context();
   
   void loop();  // Must be called regularly to handle data transfer
@@ -50,6 +50,8 @@ private:
   uint16_t serverPort;
   
   char uniqueId[64];
+  
+  bool* debug;  // Pointer to debug flag from ESPProxy
   
   bool cloudConnected;
   bool deviceConnected;
@@ -80,6 +82,12 @@ public:
   void setDebug(bool enabled) { debug = enabled; }
   void makeNewCloudConnection(int retryCount = 1);  // Public: can be called to create new connection
   bool hasFreeConnection();  // Public: check if we have a free connection available
+  
+  // Status getters for web interface
+  int getConnectionCount() const { return connectionCount; }
+  int getFreeConnectionCount() const;
+  int getMaxConnections() const { return MAX_CONNECTIONS; }
+  const ProxyConfig& getConfig() const { return config; }
   
 private:
   ProxyConfig config;

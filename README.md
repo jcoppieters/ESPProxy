@@ -13,7 +13,7 @@ This proxy server:
 
 ## Understanding the Traffic
 
-When monitoring with `ENABLE_DATA_LOGGING=true`, you'll see two types of heartbeats:
+When monitoring with debug mode enabled (via web interface or `DEBUG_MODE=true`), you'll see two types of heartbeats:
 
 ### 1. Proxy ↔ Cloud Heartbeats (Free Connections)
 ```

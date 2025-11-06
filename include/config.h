@@ -48,11 +48,8 @@
 // This identifies your device to the cloud server
 #define UNIQUE_ID "johan.esp32.net:5001"
 
-// Enable debug logging (set to true for verbose output)
+// Enable debug logging (set to true for verbose output, including data forwarding details)
 #define DEBUG_MODE false
-
-// Enable data forwarding logging (prints actual data being forwarded)
-#define ENABLE_DATA_LOGGING true
 
 // ============================================
 // Advanced Configuration
@@ -65,5 +62,18 @@
 // Connection check interval in milliseconds
 // How often to check if we need a new free connection
 #define CONNECTION_CHECK_INTERVAL 16000  // 16 seconds
+
+// ============================================
+// Web Server Configuration
+// ============================================
+
+// Enable web configuration interface
+#define ENABLE_WEB_CONFIG true
+
+// Web server port
+#define WEB_SERVER_PORT 80
+
+// mDNS hostname (access via http://duotecno-cloud.local)
+#define MDNS_HOSTNAME "duotecno-cloud"
 
 #endif // CONFIG_H

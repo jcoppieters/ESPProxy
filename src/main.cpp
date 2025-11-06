@@ -16,6 +16,7 @@
 #include <ETH.h>
 #include <WiFiClient.h>
 #include "ESPProxy.h"
+#include "WebConfig.h"
 #include "config.h"  // Contains your configuration
 
 // ESP32 ETH event flag
@@ -59,6 +60,11 @@ void onEvent(arduino_event_id_t event) {
 
 // Proxy instance
 ESPProxy proxy;
+
+#if ENABLE_WEB_CONFIG
+// Web configuration instance
+WebConfig* webConfig = nullptr;
+#endif
 
 void setup() {
   Serial.begin(115200);
@@ -125,12 +131,32 @@ void setup() {
   
   // Configure proxy
   ProxyConfig config;
+  
+#if ENABLE_WEB_CONFIG
+  // Initialize web config (for loading/saving)
+  webConfig = new WebConfig(&proxy);
+  
+  // Try to load config from NVRAM, fallback to config.h defaults
+  String mdnsHostname;
+  if (!webConfig->loadConfig(config, mdnsHostname)) {
+    Serial.println("Using default configuration from config.h");
+    strncpy(config.cloudServer, CLOUD_SERVER, sizeof(config.cloudServer) - 1);
+    config.cloudPort = CLOUD_PORT;
+    strncpy(config.masterAddress, MASTER_ADDRESS, sizeof(config.masterAddress) - 1);
+    config.masterPort = MASTER_PORT;
+    strncpy(config.uniqueId, UNIQUE_ID, sizeof(config.uniqueId) - 1);
+    config.debug = DEBUG_MODE;
+    mdnsHostname = MDNS_HOSTNAME;
+  }
+#else
+  // Load config from config.h
   strncpy(config.cloudServer, CLOUD_SERVER, sizeof(config.cloudServer) - 1);
   config.cloudPort = CLOUD_PORT;
   strncpy(config.masterAddress, MASTER_ADDRESS, sizeof(config.masterAddress) - 1);
   config.masterPort = MASTER_PORT;
   strncpy(config.uniqueId, UNIQUE_ID, sizeof(config.uniqueId) - 1);
   config.debug = DEBUG_MODE;
+#endif
   
   // Start proxy
   if (proxy.begin(config)) {
@@ -138,6 +164,20 @@ void setup() {
   } else {
     Serial.println("Failed to start proxy!");
   }
+  
+#if ENABLE_WEB_CONFIG
+  // Start web configuration interface
+  if (webConfig->begin()) {
+    Serial.println("Web configuration interface ready!");
+    Serial.print("Access at: http://");
+    Serial.print(webConfig->getMDNSHostname());
+    Serial.println(".local");
+    Serial.print("Or: http://");
+    Serial.println(ETH.localIP());
+  } else {
+    Serial.println("Failed to start web configuration interface!");
+  }
+#endif
   
   Serial.println("\n=================================");
   Serial.print("Publishing '"); 
@@ -157,6 +197,13 @@ void setup() {
 void loop() {
   // Run the proxy main loop
   proxy.loop();
+  
+#if ENABLE_WEB_CONFIG
+  // Handle web server requests
+  if (webConfig) {
+    webConfig->loop();
+  }
+#endif
   
   // Small delay to prevent watchdog issues
   delay(10);
