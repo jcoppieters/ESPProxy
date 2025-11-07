@@ -266,18 +266,8 @@ bool ESPProxy::begin(const ProxyConfig& cfg) {
   this->config = cfg;
   this->debug = cfg.debug;
   
-  this->logInfo("=== ESP Proxy Starting ===");
-  Serial.print("Cloud Server: ");
-  Serial.print(this->config.cloudServer);
-  Serial.print(":");
-  Serial.println(this->config.cloudPort);
-  Serial.print("Master Device: ");
-  Serial.print(this->config.masterAddress);
-  Serial.print(":");
-  Serial.println(this->config.masterPort);
-  Serial.print("Unique ID: ");
-  Serial.println(this->config.uniqueId);
-  
+  this->logInfo("ESP Proxy Starting");
+
   if (strlen(this->config.uniqueId) == 0) {
     this->logError("No unique ID configured - cannot start proxy");
     return false;
@@ -314,10 +304,9 @@ void ESPProxy::makeNewCloudConnection(int retryCount) {
     return;
   }
   
-  this->logInfo("Creating new cloud connection...");
-  Serial.print("Attempt ");
+  Serial.print("[INFO] Attempt ");
   Serial.print(retryCount);
-  Serial.print(" to connect to ");
+  Serial.print(" to make cloud connection to ");
   Serial.print(this->config.cloudServer);
   Serial.print(":");
   Serial.println(this->config.cloudPort);
@@ -342,7 +331,7 @@ void ESPProxy::makeNewCloudConnection(int retryCount) {
   
   // Connect to cloud server
   if (cloudSocket->connect(serverIP, this->config.cloudPort)) {
-    Serial.print("[PROXY] -> [CLOUD] Connected to cloud at ");
+    Serial.print("[PROXY -> CLOUD] Connected to cloud at ");
     Serial.print(this->config.cloudServer);
     Serial.print(":");
     Serial.println(this->config.cloudPort);
@@ -363,7 +352,7 @@ void ESPProxy::makeNewCloudConnection(int retryCount) {
       if (this->connections[i] == nullptr) {
         this->connections[i] = ctx;
         this->connectionCount++;
-        Serial.print("[PROXY] -> [CLOUD] New free connection #");
+        Serial.print("[PROXY -> CLOUD] New free connection #");
         Serial.println(this->nextConnectionId);
         break;
       }
@@ -481,41 +470,53 @@ void ESPProxy::removeConnection(Context* ctx) {
 
 void ESPProxy::logDebug(const char* msg) {
   if (this->debug) {
-    Serial.print("DEBUG: ");
+    Serial.print("[DEBUG] ");
     Serial.println(msg);
   }
 }
 
 void ESPProxy::logInfo(const char* msg) {
-  Serial.print("INFO: ");
+  Serial.print("[INFO] ");
   Serial.println(msg);
 }
 
 
 void ESPProxy::logError(const char* msg) {
-  Serial.print("ERROR: **** ");
+  Serial.print("[ERROR] **** ");
   Serial.print(msg);
   Serial.println(" ****");
 }
 
-void ESPProxy::logData(ConnectionDirection direction, int len, const uint8_t* buffer, int connectionId) {
-  if (!this->debug) return;
-  
+void ESPProxy::logDirection(ConnectionDirection direction) {
   switch (direction) {
     case DEVICE_TO_CLOUD:
-      Serial.print("[DEVICE] -> [CLOUD] ");
+      Serial.print("[DEVICE -> CLOUD] ");
       break;
     case CLOUD_TO_DEVICE:
-      Serial.print("[CLOUD] -> [DEVICE] ");
+      Serial.print("[CLOUD -> DEVICE] ");
+      break;
+    case FROM_CLOUD:
+      Serial.print("[CLOUD -> PROXY] ");
+      break;
+    case TO_DEVICE:
+      Serial.print("[PROXY -> DEVICE] ");
+      break;
+    case TO_CLOUD:
+      Serial.print("[PROXY -> CLOUD] ");
       break;
     default:
       Serial.print("[UNKNOWN] ");
       break;
   }
-  
-  Serial.print("(conn #");
+}
+
+void ESPProxy::logData(ConnectionDirection direction, int len, const uint8_t* buffer, int connectionId) {
+  if (!this->debug) return;
+
+  this->logDirection(direction);
+  Serial.print("conn #");
   Serial.print(connectionId);
-  Serial.print(") Forwarding ");
+  Serial.print(": Forwarding ");
   Serial.print(len);
   Serial.print(" bytes: ");
   for (int i = 0; i < len; i++) {
@@ -525,26 +526,12 @@ void ESPProxy::logData(ConnectionDirection direction, int len, const uint8_t* bu
 
 void ESPProxy::logMessage(ConnectionDirection direction, int connectionId, 
                           const char* message, const char* extraStr) {
-  // Print source -> destination based on direction
-  switch (direction) {
-    case FROM_CLOUD:
-      Serial.print("[CLOUD] -> [PROXY] ");
-      break;
-    case TO_DEVICE:
-      Serial.print("[PROXY] -> [DEVICE] ");
-      break;
-    case TO_CLOUD:
-      Serial.print("[PROXY] -> [CLOUD] ");
-      break;
-    default:
-      Serial.print("[UNKNOWN] ");
-      break;
-  }
+  this->logDirection(direction);
   
   if (connectionId) {
-    Serial.print("(conn #");
+    Serial.print("conn #");
     Serial.print(connectionId);
-    Serial.print(") ");
+    Serial.print(": ");
   }
   
   Serial.print(message);

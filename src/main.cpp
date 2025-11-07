@@ -17,33 +17,49 @@ static bool eth_connected = false;
 void onEvent(arduino_event_id_t event) {
   switch (event) {
     case ARDUINO_EVENT_ETH_START:
-      Serial.println("ETH Started");
+      Serial.println("[ETH] Started");
       // Set hostname
-      ETH.setHostname("duotecno-esp32-proxy");
+      ETH.setHostname(MDNS_HOSTNAME);
       break;
+
     case ARDUINO_EVENT_ETH_CONNECTED:
-      Serial.println("ETH Connected");
+      Serial.println("[ETH] Connected");
       break;
+
     case ARDUINO_EVENT_ETH_GOT_IP:
-      Serial.print("ETH Got IP: ");
+      Serial.print("[ETH] Got IP: ");
       Serial.println(ETH.localIP());
-      Serial.print("ETH MAC: ");
+
+      Serial.print("[ETH] Subnet Mask: ");
+      Serial.println(ETH.subnetMask());
+
+      Serial.print("[ETH] MAC: ");
       Serial.println(ETH.macAddress());
-      if (ETH.fullDuplex()) {
-        Serial.print("FULL_DUPLEX, ");
-      }
+
+      Serial.print("[ETH] ");
+      if (ETH.fullDuplex()) Serial.print("FULL_DUPLEX, ");
       Serial.print(ETH.linkSpeed());
       Serial.println("Mbps");
+
+      Serial.print("[ETH] Gateway: ");
+      Serial.println(ETH.gatewayIP());
+
+      Serial.print("[ETH] DNS Server: ");
+      Serial.println(ETH.dnsIP());
+
       eth_connected = true;
       break;
+
     case ARDUINO_EVENT_ETH_DISCONNECTED:
       Serial.println("ETH Disconnected");
       eth_connected = false;
       break;
+
     case ARDUINO_EVENT_ETH_STOP:
       Serial.println("ETH Stopped");
       eth_connected = false;
       break;
+
     default:
       break;
   }
@@ -59,25 +75,23 @@ WebConfig* webConfig = nullptr;
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial && millis() < 3000); // Wait for serial or timeout after 3s
+  delay(500); // Small delay for serial to stabilize
   
 #if ENABLE_LED
   // Initialize LED (only if enabled)
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
 #endif
-  
-  Serial.println("\n\n=================================");
-  Serial.println("ESP32 Duotecno Proxy");
-  Serial.println("=================================\n");
+
+  Serial.println("\n============================");
+  Serial.println("=== ESP32 Duotecno Proxy ===");
+  Serial.print("=== Version: "); Serial.print(VERSION); Serial.println("    ===");
+  Serial.println("============================\n");
   
   // Register ETH event handler
   WiFi.onEvent(onEvent);
-  
-  // Initialize Ethernet for Olimex ESP32-POE
-  Serial.println("Initializing Ethernet...");
-  
-  // Olimex ESP32-POE uses LAN8720 PHY
+    
+  // Initialize Ethernet for Olimex ESP32-POE uses LAN8720 PHY
   // PHY_ADDR = 0, PHY_POWER = 12, PHY_MDC = 23, PHY_MDIO = 18, PHY_TYPE = ETH_PHY_LAN8720
   ETH.begin(0, 12, 23, 18, ETH_PHY_LAN8720, ETH_CLOCK_GPIO17_OUT);
   
@@ -96,29 +110,16 @@ void setup() {
 #endif
   
   // Wait for Ethernet connection
-  Serial.println("Waiting for Ethernet connection...");
+  Serial.println("[ETH] Waiting for connection...");
   unsigned long startTime = millis();
   while (!eth_connected && (millis() - startTime < 10000)) {
     delay(500);
-    Serial.print(".");
   }
-  Serial.println();
   
   if (!eth_connected) {
     Serial.println("Failed to connect to Ethernet!");
     return;
   }
-  
-  // Print network configuration
-  Serial.print("IP Address: ");
-  Serial.println(ETH.localIP());
-  Serial.print("Subnet Mask: ");
-  Serial.println(ETH.subnetMask());
-  Serial.print("Gateway: ");
-  Serial.println(ETH.gatewayIP());
-  Serial.print("DNS Server: ");
-  Serial.println(ETH.dnsIP());
-  Serial.println();
   
   // Configure proxy
   ProxyConfig config;
@@ -130,7 +131,7 @@ void setup() {
   // Try to load config from NVRAM, fallback to config.h defaults
   String mdnsHostname;
   if (!webConfig->loadConfig(config, mdnsHostname)) {
-    Serial.println("Using default configuration from config.h");
+    Serial.println("[CONFIG] Using default configuration from config.h");
     strncpy(config.cloudServer, CLOUD_SERVER, sizeof(config.cloudServer) - 1);
     config.cloudPort = CLOUD_PORT;
     strncpy(config.masterAddress, MASTER_ADDRESS, sizeof(config.masterAddress) - 1);
@@ -151,38 +152,39 @@ void setup() {
   
   // Start proxy
   if (proxy.begin(config)) {
-    Serial.println("Proxy started successfully!");
+    Serial.println("[INFO] ESP Proxy started successfully!");
   } else {
-    Serial.println("Failed to start proxy!");
+    Serial.println("[ERROR] ESP Proxy Failed to start!");
   }
   
 #if ENABLE_WEB_CONFIG
   // Start web configuration interface
   if (webConfig->begin()) {
-    Serial.println("Web configuration interface ready!");
-    Serial.print("Access at: http://");
-    Serial.print(webConfig->getMDNSHostname());
-    Serial.println(".local");
-    Serial.print("Or: http://");
+    Serial.println("[INFO] =======");
+    Serial.println("[INFO] === Web configuration interface ready!");
+      Serial.print("[INFO] === Access at: http://");
+      Serial.print(webConfig->getMDNSHostname());
+      Serial.print(".local");
+      Serial.print(" - http://");
     Serial.println(ETH.localIP());
   } else {
     Serial.println("Failed to start web configuration interface!");
   }
 #endif
   
-  Serial.println("\n=================================");
-  Serial.print("Publishing '"); 
+  Serial.println("[INFO] =======");
+  Serial.print("[INFO] === Publishing '"); 
     Serial.print(config.uniqueId);
     Serial.print("' to: ");
     Serial.print(config.cloudServer);
     Serial.print(":");
     Serial.println(config.cloudPort);
-  Serial.print("Proxy for "); 
+  Serial.print("[INFO] === Proxy is running on "); 
     Serial.print(config.masterAddress); 
     Serial.print(":"); 
     Serial.print(config.masterPort); 
-    Serial.println(" is running...");
-  Serial.println("=================================\n");
+    Serial.println("...");
+  Serial.println("[INFO] =======");
 }
 
 void loop() {

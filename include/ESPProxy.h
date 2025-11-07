@@ -45,11 +45,11 @@ class ESPProxy;
 
 // Connection direction for logging
 enum ConnectionDirection {
-  FROM_CLOUD,       // [CLOUD] -> [PROXY]
-  TO_DEVICE,        // [PROXY] -> [DEVICE]
-  TO_CLOUD,         // [PROXY] -> [CLOUD]
-  DEVICE_TO_CLOUD,  // [DEVICE] -> [CLOUD]
-  CLOUD_TO_DEVICE   // [CLOUD] -> [DEVICE]
+  FROM_CLOUD,       // [CLOUD -> PROXY]
+  TO_DEVICE,        // [PROXY -> DEVICE]
+  TO_CLOUD,         // [PROXY -> CLOUD]
+  DEVICE_TO_CLOUD,  // [DEVICE -> CLOUD]
+  CLOUD_TO_DEVICE   // [CLOUD -> DEVICE]
 };
 
 // Connection context - manages one cloud-to-device connection pair
@@ -132,6 +132,7 @@ public:
   // Generic logging helper: logs [SOURCE] -> [DEST] messages
   // connectionId: if > 0, includes "(conn #X)" in message
   // extraStr: if not nullptr, appends this string to the message
+  void logDirection(ConnectionDirection direction);
   void logMessage(ConnectionDirection direction, int connectionId, 
                   const char* message, const char* extraStr = nullptr);
 

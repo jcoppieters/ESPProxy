@@ -37,19 +37,19 @@ bool WebConfig::begin() {
   
   // Start server
   this->server->begin();
-  Serial.print("Web server started on port ");
+  Serial.print("[WEB] http server started on port ");
   Serial.println(WEB_SERVER_PORT);
   
   // Start mDNS
   if (MDNS.begin(this->currentMDNS.c_str())) {
-    Serial.print("mDNS responder started: http://");
+    Serial.print("[WEB] mDNS responder started: http://");
     Serial.print(this->currentMDNS);
     Serial.println(".local");
     
     // Add service
     MDNS.addService("http", "tcp", WEB_SERVER_PORT);
   } else {
-    Serial.println("Error starting mDNS");
+    Serial.println("[WEB] Error starting mDNS");
     return false;
   }
   
@@ -76,40 +76,39 @@ bool WebConfig::loadConfig(ProxyConfig& config, String& mdnsHostname) {
     return false;
   }
   
-  Serial.println("[CONFIG] Loading configuration from NVRAM...");
-  Serial.println("[CONFIG] ======== NVRAM Contents ========");
-  
+  Serial.println("[CONFIG] NVRAM Contents");
+  Serial.println("[CONFIG] =======");
+
   // Load all parameters
   this->loadStringParameter("cloudServer", config.cloudServer, sizeof(config.cloudServer), CLOUD_SERVER);
-  Serial.print("[CONFIG]   cloudServer: ");
+  Serial.print("[CONFIG] === cloudServer: ");
   Serial.println(config.cloudServer);
   
   this->loadIntParameter("cloudPort", (int&)config.cloudPort, CLOUD_PORT);
-  Serial.print("[CONFIG]   cloudPort: ");
+  Serial.print("[CONFIG] === cloudPort: ");
   Serial.println(config.cloudPort);
   
   this->loadStringParameter("masterAddr", config.masterAddress, sizeof(config.masterAddress), MASTER_ADDRESS);
-  Serial.print("[CONFIG]   masterAddress: ");
+  Serial.print("[CONFIG] === masterAddress: ");
   Serial.println(config.masterAddress);
   
   this->loadIntParameter("masterPort", (int&)config.masterPort, MASTER_PORT);
-  Serial.print("[CONFIG]   masterPort: ");
+  Serial.print("[CONFIG] === masterPort: ");
   Serial.println(config.masterPort);
   
   this->loadStringParameter("uniqueId", config.uniqueId, sizeof(config.uniqueId), UNIQUE_ID);
-  Serial.print("[CONFIG]   uniqueId: ");
+  Serial.print("[CONFIG] === uniqueId: ");
   Serial.println(config.uniqueId);
   
   this->loadBoolParameter("debug", config.debug, DEBUG_MODE);
-  Serial.print("[CONFIG]   debug: ");
+  Serial.print("[CONFIG] === debug: ");
   Serial.println(config.debug ? "true" : "false");
   
   mdnsHostname = this->preferences.getString("mdnsHostname", MDNS_HOSTNAME);
-  Serial.print("[CONFIG]   mdnsHostname: ");
+  Serial.print("[CONFIG] === mdnsHostname: ");
   Serial.println(mdnsHostname);
   
-  Serial.println("[CONFIG] ============================");
-  Serial.println("[CONFIG] Configuration loaded successfully");
+  Serial.println("[CONFIG] =======");
   return true;
 }
 

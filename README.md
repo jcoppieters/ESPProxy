@@ -267,8 +267,8 @@ Enable verbose logging:
      ```
 
 3. **Verify Connection**
-   - Look for: `[PROXY] -> [CLOUD] Connected to cloud at masters.duotecno.eu:5097`
-   - Look for: `[PROXY] -> [CLOUD] Sent unique ID: mydevice.ddns.net:5001`
+   - Look for: `[PROXY -> CLOUD] Connected to cloud at masters.duotecno.eu:5097`
+   - Look for: `[PROXY -> CLOUD] Sent unique ID: mydevice.ddns.net:5001`
 
 4. **Monitor Operation**
    - The proxy will automatically:

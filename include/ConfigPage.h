@@ -395,7 +395,7 @@ inline String generateConfigPage(
     </form>
     
     <div class="footer">
-      ESP32 Duotecno Cloud Proxy ❤️ for reliable connections - Johan for Duotecno 2025
+      Version )rawliteral" + VERSION + R"rawliteral( - ESP32 Duotecno Cloud Proxy - 2025
     </div>
   </div>
   
