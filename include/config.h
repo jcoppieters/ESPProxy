@@ -46,7 +46,7 @@
 
 // Unique ID for this device (e.g., your no-ip address + port)
 // This identifies your device to the cloud server
-#define UNIQUE_ID "johan.esp32.net:5001"
+#define UNIQUE_ID "duotecno.esp32.net:5001"
 
 // Enable debug logging (set to true for verbose output, including data forwarding details)
 #define DEBUG_MODE false

@@ -1,15 +1,6 @@
 /*
- * ESP32 Proxy for Duotecno Cloud
- * 
- * This sketch implements a TCP proxy that:
- * 1. Connects to a cloud server and registers with a unique ID
- * 2. Maintains a pool of free connections ready for clients
- * 3. Forwards data between cloud clients and local device
- * 4. Automatically creates new free connections when needed
- * 
- * Hardware: ESP32 with Ethernet (WT32-ETH01, Olimex ESP32-POE, etc.)
- * 
- * Author: Translated from TypeScript proxy.ts
+ * Start ESP32 Proxy and configurator for Duotecno Cloud
+ * Author: Johan Coppieters for Duotecno
  * Date: November 2025
  */
 
@@ -181,15 +172,15 @@ void setup() {
   
   Serial.println("\n=================================");
   Serial.print("Publishing '"); 
-    Serial.print(UNIQUE_ID);
+    Serial.print(config.uniqueId);
     Serial.print("' to: ");
-    Serial.print(CLOUD_SERVER);
+    Serial.print(config.cloudServer);
     Serial.print(":");
-    Serial.println(CLOUD_PORT);
+    Serial.println(config.cloudPort);
   Serial.print("Proxy for "); 
-    Serial.print(MASTER_ADDRESS); 
+    Serial.print(config.masterAddress); 
     Serial.print(":"); 
-    Serial.print(MASTER_PORT); 
+    Serial.print(config.masterPort); 
     Serial.println(" is running...");
   Serial.println("=================================\n");
 }

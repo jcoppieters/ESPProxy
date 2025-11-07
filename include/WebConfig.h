@@ -28,7 +28,7 @@ public:
   String getMDNSHostname();
   
 private:
-  ESPProxy* proxyInstance;
+  ESPProxy* proxy;
   WebServer* server;
   Preferences preferences;
   String currentMDNS;

@@ -1,30 +1,24 @@
 #include "ESPProxy.h"
 #include "config.h"
 
-// Global reference for connection removal callback
-ESPProxy* g_proxyInstance = nullptr;
+////////////////////////////
+// Context Implementation //
+////////////////////////////
+//
+// A Context is a single cloud-to-device connection pair.
+// It manages the two sockets and data forwarding between them.
+//
+Context::Context(WiFiClient* cloudSocket, ESPProxy* proxy, int connectionId) {
+  // We receive 
+  //  a socket already connected to the cloud server
+  //  a reference to the parent ESPProxy instance
+  //  a connection identifier for debugging (global number incremented by ESPProxy)
+  this->cloudSocket = cloudSocket;
+  this->proxy = proxy;
+  this->connectionId = connectionId;
 
-///////////////
-// Context Implementation
-///////////////
-
-Context::Context(WiFiClient* cs, const char* m, uint16_t mp, 
-                 const char* s, uint16_t sp, const char* uid, int id, bool* debugPtr) {
-  this->cloudSocket = cs;
+  // initialize members
   this->deviceSocket = nullptr;
-  this->connectionId = id;
-  this->debug = debugPtr;
-  
-  strncpy(this->master, m, sizeof(this->master) - 1);
-  this->master[sizeof(this->master) - 1] = '\0';
-  this->masterPort = mp;
-  
-  strncpy(this->server, s, sizeof(this->server) - 1);
-  this->server[sizeof(this->server) - 1] = '\0';
-  this->serverPort = sp;
-  
-  strncpy(this->uniqueId, uid, sizeof(this->uniqueId) - 1);
-  this->uniqueId[sizeof(this->uniqueId) - 1] = '\0';
   
   this->cloudConnected = (this->cloudSocket && this->cloudSocket->connected());
   this->deviceConnected = false;
@@ -65,7 +59,7 @@ void Context::loop() {
   if (this->cloudSocket) {
     if (!this->cloudSocket->connected()) {
       Serial.println("[CLOUD] Connection closed");
-      this->cleanupSockets();
+      this->proxy->removeConnection(this);
       return;
     }
     
@@ -77,7 +71,9 @@ void Context::loop() {
   
   // Handle data from device to cloud
   if (this->deviceSocket && this->deviceConnected) {
+
     if (!this->deviceSocket->connected()) {
+      // For some reason the device disconnected
       Serial.println("[DEVICE] Connection closed");
       if (this->deviceSocket) {
         this->deviceSocket->stop();
@@ -90,27 +86,19 @@ void Context::loop() {
     }
     
     if (this->deviceSocket->available() > 0) {
+      // We have incoming data from device
       uint8_t buffer[512];
       int len = this->deviceSocket->read(buffer, sizeof(buffer));
+
       if (len > 0) {
-        this->blinkLED();  // Blink LED when forwarding device data to cloud
-        if (this->debug && *this->debug) {
-          Serial.print("[DEVICE] -> [CLOUD] (conn #");
-          Serial.print(this->connectionId);
-          Serial.print(") Forwarding ");
-          Serial.print(len);
-          Serial.print(" bytes: ");
-          for (int i = 0; i < len; i++) {
-            if (buffer[i] != 0) Serial.write(buffer[i]);
-          }
-        }
+        // Blink LED when forwarding device data to cloud
+        this->blinkLED();
+        this->proxy->logData(DEVICE_TO_CLOUD, len, buffer, this->connectionId);
         
         if (this->cloudSocket && this->cloudSocket->connected()) {
           this->cloudSocket->write(buffer, len);
           // Track statistics
-          if (g_proxyInstance) {
-            g_proxyInstance->addBytesTransferred(len);
-          }
+          this->proxy->addBytesTransferred(len);
         }
       }
     }
@@ -130,71 +118,56 @@ void Context::handleDataFromCloud() {
   memcpy(strBuffer, buffer, len);
   strBuffer[len] = '\0';
   
-  // Only log non-data messages (heartbeats, connection responses)
-  // Data forwarding will be logged separately
-  
   if (!this->deviceSocket || !this->deviceConnected) {
     // No device connection yet - check what kind of message this is
     
     if (this->isHeartbeatRequest(strBuffer, len)) {
-      Serial.print("[CLOUD] -> [PROXY] (conn #");
-      Serial.print(this->connectionId);
-      Serial.println(") Heartbeat request, responding...");
+      this->proxy->logMessage(FROM_CLOUD, this->connectionId, "Heartbeat request, responding...");
+
+      // answer the heartbeat request
       this->cloudSocket->write("[72,3]");
       return;
     }
     
     if (this->isConnectionResponse(strBuffer, len)) {
-      Serial.print("[CLOUD] -> [PROXY] (conn #");
-      Serial.print(this->connectionId);
-      Serial.print(") Connection response: ");
-      Serial.println(strBuffer);
+      // response from the server to our connection request
+      this->proxy->logMessage(FROM_CLOUD, this->connectionId, "Connection response: ", strBuffer);
       return;
     }
     
     // Real data - a new client wants to connect
-    Serial.print("[PROXY] -> [CLOUD] (conn #");
-    Serial.print(this->connectionId);
-    Serial.println(") New client connection detected");
+    //  -> we need to connect to the device 
+    //     and forward this data + all next data
+    this->proxy->logMessage(FROM_CLOUD, this->connectionId, "New client connection detected");
     
     // Track statistics - incoming client connection
-    if (g_proxyInstance) {
-      g_proxyInstance->incrementClientConnections();
-    }
+    this->proxy->incrementClientConnections();
     
     // Connect to the device and forward this initial data
     this->makeDeviceConnection(buffer, len);
     
     // This connection is now busy with a device, so we always need a new free connection
-    if (g_proxyInstance && this->deviceConnected) {
+    if (this->deviceConnected) {
       Serial.println("[PROXY] Connection now has device attached - creating new free connection...");
-      g_proxyInstance->makeNewCloudConnection();
+      this->proxy->makeNewCloudConnection();
     }
+
   } else if (this->deviceSocket && this->deviceConnected) {
     // Forward data to device
-    if (this->debug && *this->debug) {
-      Serial.print("[CLOUD] -> [DEVICE] (conn #");
-      Serial.print(this->connectionId);
-      Serial.print(") Forwarding ");
-      Serial.print(len);
-      Serial.print(" bytes: ");
-      for (int i = 0; i < len; i++) {
-        if (buffer[i] != 0) Serial.write(buffer[i]);
-      }
-    }
+    this->proxy->logData(CLOUD_TO_DEVICE, len, buffer, this->connectionId);
     this->deviceSocket->write(buffer, len);
     // Track statistics
-    if (g_proxyInstance) {
-      g_proxyInstance->addBytesTransferred(len);
-    }
+    this->proxy->addBytesTransferred(len);
   }
 }
 
 void Context::makeDeviceConnection(uint8_t* data, size_t len) {
+  const ProxyConfig& config = this->proxy->getConfig();
+  
   Serial.print("[PROXY] -> [DEVICE] Connecting to device at ");
-  Serial.print(this->master);
+  Serial.print(config.masterAddress);
   Serial.print(":");
-  Serial.println(this->masterPort);
+  Serial.println(config.masterPort);
   
   if (!this->deviceSocket) {
     this->deviceSocket = new WiFiClient();
@@ -202,12 +175,12 @@ void Context::makeDeviceConnection(uint8_t* data, size_t len) {
   
   // Parse IP address
   IPAddress deviceIP;
-  if (deviceIP.fromString(this->master)) {
-    if (this->deviceSocket->connect(deviceIP, this->masterPort)) {
-      Serial.println("[PROXY] -> [DEVICE] Connected to device");
+  if (deviceIP.fromString(config.masterAddress)) {
+    if (this->deviceSocket->connect(deviceIP, config.masterPort)) {
+      this->proxy->logMessage(TO_DEVICE, 0, "Connected to device");
       this->deviceConnected = true;
       
-      if (this->debug && *this->debug) {
+      if (config.debug) {
         // Send initial data
         Serial.print("[PROXY] -> [DEVICE] Sending initial ");
         Serial.print(len);
@@ -218,18 +191,16 @@ void Context::makeDeviceConnection(uint8_t* data, size_t len) {
       }
       this->deviceSocket->write(data, len);
       // Track statistics
-      if (g_proxyInstance) {
-        g_proxyInstance->addBytesTransferred(len);
-      }
+      this->proxy->addBytesTransferred(len);
 
     } else {
-      Serial.println("[PROXY] -> [DEVICE] Failed to connect to device");
+      this->proxy->logMessage(TO_DEVICE, 0, "Failed to connect to device");
       delete this->deviceSocket;
       this->deviceSocket = nullptr;
       this->deviceConnected = false;
     }
   } else {
-    Serial.println("[PROXY] -> [DEVICE] Invalid device IP address");
+    this->proxy->logMessage(TO_DEVICE, 0, "Invalid device IP address");
     delete this->deviceSocket;
     this->deviceSocket = nullptr;
     this->deviceConnected = false;
@@ -270,13 +241,14 @@ void Context::updateLED() {
   #endif
 }
 
-///////////////
-// ESPProxy Implementation
-///////////////
+/////////////////////////////
+// ESPProxy Implementation //
+/////////////////////////////
 
 ESPProxy::ESPProxy() {
   this->debug = false;
   this->connectionCount = 0;
+  this->nextConnectionId = 0;
   this->lastConnectionCheck = 0;
   this->totalBytesTransferred = 0;
   this->totalClientConnections = 0;
@@ -284,13 +256,10 @@ ESPProxy::ESPProxy() {
   for (int i = 0; i < MAX_CONNECTIONS; i++) {
     this->connections[i] = nullptr;
   }
-  
-  g_proxyInstance = this;
 }
 
 ESPProxy::~ESPProxy() {
   this->cleanStart(false);
-  g_proxyInstance = nullptr;
 }
 
 bool ESPProxy::begin(const ProxyConfig& cfg) {
@@ -316,7 +285,6 @@ bool ESPProxy::begin(const ProxyConfig& cfg) {
   
   // Create initial free connection
   this->makeNewCloudConnection();
-  
   this->lastConnectionCheck = millis();
   
   return true;
@@ -342,7 +310,7 @@ void ESPProxy::loop() {
 
 void ESPProxy::makeNewCloudConnection(int retryCount) {
   if (this->connectionCount >= MAX_CONNECTIONS) {
-    this->logWarning("Maximum connections reached, cannot create new connection");
+    this->logError("Maximum connections reached, cannot create new connection");
     return;
   }
   
@@ -384,13 +352,11 @@ void ESPProxy::makeNewCloudConnection(int retryCount) {
     cloudSocket->print(this->config.uniqueId);
     cloudSocket->print("]");
     
-    Serial.print("[PROXY] -> [CLOUD] Sent unique ID: ");
-    Serial.println(this->config.uniqueId);
+    this->logMessage(TO_CLOUD, 0, "Sent unique ID: ", this->config.uniqueId);
     
-    // Create context and add to pool
-    Context* ctx = new Context(cloudSocket, this->config.masterAddress, this->config.masterPort,
-                               this->config.cloudServer, this->config.cloudPort, this->config.uniqueId, 
-                               this->connectionCount + 1, &this->debug);
+    // Create context and add to pool with unique ID
+    this->nextConnectionId++;
+    Context* ctx = new Context(cloudSocket, this, this->nextConnectionId);
     
     // Find empty slot
     for (int i = 0; i < MAX_CONNECTIONS; i++) {
@@ -398,7 +364,7 @@ void ESPProxy::makeNewCloudConnection(int retryCount) {
         this->connections[i] = ctx;
         this->connectionCount++;
         Serial.print("[PROXY] -> [CLOUD] New free connection #");
-        Serial.println(this->connectionCount);
+        Serial.println(this->nextConnectionId);
         break;
       }
     }
@@ -414,12 +380,11 @@ void ESPProxy::makeNewCloudConnection(int retryCount) {
   }
 }
 
-void ESPProxy::checkConnections() {
-  this->logDebug("Checking for free connections...");
-  
+void ESPProxy::checkConnections() {  
   // Remove inactive connections
   for (int i = 0; i < MAX_CONNECTIONS; i++) {
     if (this->connections[i] && !this->connections[i]->isActive()) {
+      this->logDebug("Removing inactive connection...");
       delete this->connections[i];
       this->connections[i] = nullptr;
       this->connectionCount--;
@@ -454,6 +419,16 @@ int ESPProxy::getFreeConnectionCount() const {
   return count;
 }
 
+int ESPProxy::getActiveConnectionCount() const {
+  int count = 0;
+  for (int i = 0; i < MAX_CONNECTIONS; i++) {
+    if (this->connections[i] && !this->connections[i]->isFree()) {
+      count++;
+    }
+  }
+  return count;
+}
+
 void ESPProxy::cleanStart(bool restart) {
   this->logInfo("Cleaning up connections...");
   
@@ -464,19 +439,22 @@ void ESPProxy::cleanStart(bool restart) {
       this->connections[i] = nullptr;
     }
   }
-  
+    
   this->connectionCount = 0;
-  
+  this->nextConnectionId = 0;
+  this->lastConnectionCheck = millis();
+
+
   if (restart) {
     this->logInfo("Restarting proxy...");
     delay(100);
+    ESP.restart();
     
-    if (strlen(this->config.uniqueId) > 0) {
-      this->makeNewCloudConnection();
-      this->lastConnectionCheck = millis();
-    } else {
-      this->logError("No unique ID - cannot restart");
-    }
+    // if (strlen(this->config.uniqueId) > 0) {
+    //   this->makeNewCloudConnection();
+    // } else {
+    //   this->logError("No unique ID - cannot restart");
+    // }
   }
 }
 
@@ -489,7 +467,7 @@ void ESPProxy::removeConnection(Context* ctx) {
       this->connectionCount--;
       
       if (this->connectionCount == 0) {
-        this->logWarning("No more connections - restarting");
+        this->logError("No more connections - restarting");
         this->cleanStart(true);
       }
       return;
@@ -497,9 +475,9 @@ void ESPProxy::removeConnection(Context* ctx) {
   }
 }
 
-///////////////
-// Logging Functions
-///////////////
+///////////////////////
+// Logging Functions //
+///////////////////////
 
 void ESPProxy::logDebug(const char* msg) {
   if (this->debug) {
@@ -513,13 +491,67 @@ void ESPProxy::logInfo(const char* msg) {
   Serial.println(msg);
 }
 
-void ESPProxy::logWarning(const char* msg) {
-  Serial.print("WARNING: ");
-  Serial.println(msg);
-}
 
 void ESPProxy::logError(const char* msg) {
   Serial.print("ERROR: **** ");
   Serial.print(msg);
   Serial.println(" ****");
+}
+
+void ESPProxy::logData(ConnectionDirection direction, int len, const uint8_t* buffer, int connectionId) {
+  if (!this->debug) return;
+  
+  switch (direction) {
+    case DEVICE_TO_CLOUD:
+      Serial.print("[DEVICE] -> [CLOUD] ");
+      break;
+    case CLOUD_TO_DEVICE:
+      Serial.print("[CLOUD] -> [DEVICE] ");
+      break;
+    default:
+      Serial.print("[UNKNOWN] ");
+      break;
+  }
+  
+  Serial.print("(conn #");
+  Serial.print(connectionId);
+  Serial.print(") Forwarding ");
+  Serial.print(len);
+  Serial.print(" bytes: ");
+  for (int i = 0; i < len; i++) {
+    if (buffer[i] != 0) Serial.write(buffer[i]);
+  }
+}
+
+void ESPProxy::logMessage(ConnectionDirection direction, int connectionId, 
+                          const char* message, const char* extraStr) {
+  // Print source -> destination based on direction
+  switch (direction) {
+    case FROM_CLOUD:
+      Serial.print("[CLOUD] -> [PROXY] ");
+      break;
+    case TO_DEVICE:
+      Serial.print("[PROXY] -> [DEVICE] ");
+      break;
+    case TO_CLOUD:
+      Serial.print("[PROXY] -> [CLOUD] ");
+      break;
+    default:
+      Serial.print("[UNKNOWN] ");
+      break;
+  }
+  
+  if (connectionId) {
+    Serial.print("(conn #");
+    Serial.print(connectionId);
+    Serial.print(") ");
+  }
+  
+  Serial.print(message);
+  
+  if (extraStr) {
+    Serial.println(extraStr);
+  } else {
+    Serial.println();
+  }
 }

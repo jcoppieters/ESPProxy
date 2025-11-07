@@ -1,4 +1,21 @@
-#ifndef ESPPROXY_H
+/*
+ * ESP32 Proxy for Duotecno Cloud
+ * 
+ * This program implements a TCP proxy that:
+ * 1. Connects to a cloud server and registers with a unique ID
+ * 2. Maintains a pool of free connections ready for clients
+ * 3. Forwards data between cloud clients and local device
+ * 4. Automatically creates new free connections when needed
+ * 
+ * Hardware: ESP32 with Ethernet (WT32-ETH01, Olimex ESP32-POE, etc.)
+ * 
+ * Author: Johan Coppieters for Duotecno
+ * Translated from TypeScript proxy.ts 
+ * Date: November 2025
+
+ */
+
+ #ifndef ESPPROXY_H
 #define ESPPROXY_H
 
 #include <Arduino.h>
@@ -7,11 +24,11 @@
 #include "config.h"
 
 // LED Configuration
-// LED disabled - GPIO pins conflict with Ethernet
+// LED disabled - no LED connected to any GPIO pins
 // Set ENABLE_LED to true to use it for packet indication
-#define ENABLE_LED false   // Set to false - no safe GPIO available
-#define LED_PIN 12        // Not used when ENABLE_LED is false
-#define LED_BLINK_DURATION 200  // ms to keep LED on when packet received
+#define ENABLE_LED false          // Set to false - no safe GPIO available
+#define LED_PIN 12                // Not used when ENABLE_LED is false
+#define LED_BLINK_DURATION 200    // ms to keep LED on when packet received
 
 // Configuration structure
 struct ProxyConfig {
@@ -23,11 +40,22 @@ struct ProxyConfig {
   bool debug;             // Debug mode
 };
 
+// Forward declaration
+class ESPProxy;
+
+// Connection direction for logging
+enum ConnectionDirection {
+  FROM_CLOUD,       // [CLOUD] -> [PROXY]
+  TO_DEVICE,        // [PROXY] -> [DEVICE]
+  TO_CLOUD,         // [PROXY] -> [CLOUD]
+  DEVICE_TO_CLOUD,  // [DEVICE] -> [CLOUD]
+  CLOUD_TO_DEVICE   // [CLOUD] -> [DEVICE]
+};
+
 // Connection context - manages one cloud-to-device connection pair
 class Context {
 public:
-  Context(WiFiClient* cloudSocket, const char* master, uint16_t masterPort, 
-          const char* server, uint16_t serverPort, const char* uniqueId, int id, bool* debugPtr);
+  Context(WiFiClient* cloudSocket, ESPProxy* proxy, int connectionId);
   ~Context();
   
   void loop();  // Must be called regularly to handle data transfer
@@ -38,20 +66,12 @@ public:
   void handleDataFromCloud();
   
 private:
+  ESPProxy* proxy;  // Reference to parent ESPProxy instance
+  
   WiFiClient* cloudSocket;
   WiFiClient* deviceSocket;
   
   int connectionId;  // Unique ID for debugging
-  
-  char master[16];
-  uint16_t masterPort;
-  
-  char server[64];
-  uint16_t serverPort;
-  
-  char uniqueId[64];
-  
-  bool* debug;  // Pointer to debug flag from ESPProxy
   
   bool cloudConnected;
   bool deviceConnected;
@@ -69,8 +89,12 @@ private:
   void blinkLED();     // Turn on LED briefly
   void updateLED();    // Update LED state (turn off after blink duration)
 };
-
-// Main proxy class
+//////////////////////
+// Main proxy class //
+//////////////////////
+//
+// Actually our application (next to the config web server)
+//
 class ESPProxy {
 public:
   ESPProxy();
@@ -86,6 +110,7 @@ public:
   // Status getters for web interface
   int getConnectionCount() const { return connectionCount; }
   int getFreeConnectionCount() const;
+  int getActiveConnectionCount() const;  // Returns count of connections with device attached
   int getMaxConnections() const { return MAX_CONNECTIONS; }
   const ProxyConfig& getConfig() const { return config; }
   
@@ -96,13 +121,30 @@ public:
   // Statistics updaters (called by Context)
   void addBytesTransferred(size_t bytes) { totalBytesTransferred += bytes; }
   void incrementClientConnections() { totalClientConnections++; }
+  void removeConnection(Context* ctx);  // Called by Context when connection closes
+
+  // Logging functions
+  void logDebug(const char* msg);
+  void logInfo(const char* msg);
+  void logError(const char* msg);  
+  void logData(ConnectionDirection direction, int len, const uint8_t* buffer, int connectionId);
   
+  // Generic logging helper: logs [SOURCE] -> [DEST] messages
+  // connectionId: if > 0, includes "(conn #X)" in message
+  // extraStr: if not nullptr, appends this string to the message
+  void logMessage(ConnectionDirection direction, int connectionId, 
+                  const char* message, const char* extraStr = nullptr);
+
+  // Restart the ESP, but try to clean up first
+  void cleanStart(bool restart = false);
+
 private:
   ProxyConfig config;
   bool debug;
   
   Context* connections[MAX_CONNECTIONS];
-  int connectionCount;
+  int connectionCount;  // Number of active connections in array
+  int nextConnectionId; // Counter for generating unique connection IDs
   
   unsigned long lastConnectionCheck;
   
@@ -111,14 +153,6 @@ private:
   unsigned long totalClientConnections;
   
   void checkConnections();
-  void cleanStart(bool restart = false);
-  void removeConnection(Context* ctx);
-  
-  // Logging functions
-  void logDebug(const char* msg);
-  void logInfo(const char* msg);
-  void logWarning(const char* msg);
-  void logError(const char* msg);
 };
 
 #endif // ESPPROXY_H
