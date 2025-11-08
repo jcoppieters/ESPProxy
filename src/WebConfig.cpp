@@ -210,9 +210,13 @@ void WebConfig::handleNotFound() {
 }
 
 String WebConfig::generateStatusJSON() {
+  int activeCount = this->proxy ? this->proxy->getActiveConnectionCount() : 0;
+  int freeCount = this->proxy ? this->proxy->getFreeConnectionCount() : 0;
+
+  
   String json = "{";
-  json += "\"connectionCount\":" + String(this->proxy ? this->proxy->getActiveConnectionCount() : 0) + ",";
-  json += "\"freeConnections\":" + String(this->proxy ? this->proxy->getFreeConnectionCount() : 0) + ",";
+  json += "\"connectionCount\":" + String(activeCount) + ",";
+  json += "\"freeConnections\":" + String(freeCount) + ",";
   json += "\"maxConnections\":" + String(MAX_CONNECTIONS) + ",";
   json += "\"bytesTransferred\":" + String(this->proxy ? this->proxy->getTotalBytesTransferred() : 0) + ",";
   json += "\"clientConnections\":" + String(this->proxy ? this->proxy->getTotalClientConnections() : 0) + ",";
@@ -220,7 +224,9 @@ String WebConfig::generateStatusJSON() {
   json += "\"ip\":\"" + ETH.localIP().toString() + "\",";
   json += "\"connections\":[";
   
-  // TODO: Add connection details when we expose them from ESPProxy
+  if (this->proxy) {
+    json += this->proxy->getConnectionDetailsJSON();
+  }
   
   json += "]";
   json += "}";

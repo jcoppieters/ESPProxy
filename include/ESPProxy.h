@@ -62,6 +62,13 @@ public:
   bool isActive() const { return cloudSocket != nullptr; }
   bool isFree() const { return cloudSocket != nullptr && deviceSocket == nullptr && cloudConnected; }
   
+  // Getters for connection details
+  int getConnectionId() const { return connectionId; }
+  bool hasCloudSocket() const { return cloudSocket != nullptr; }
+  bool hasDeviceSocket() const { return deviceSocket != nullptr; }
+  bool isCloudConnected() const { return cloudConnected; }
+  bool isDeviceConnected() const { return deviceConnected; }
+  
   void cleanupSockets();
   void handleDataFromCloud();
   
@@ -113,6 +120,7 @@ public:
   int getActiveConnectionCount() const;  // Returns count of connections with device attached
   int getMaxConnections() const { return MAX_CONNECTIONS; }
   const ProxyConfig& getConfig() const { return config; }
+  String getConnectionDetailsJSON() const;  // Returns JSON array with connection details
   
   // Statistics getters
   unsigned long getTotalBytesTransferred() const { return totalBytesTransferred; }

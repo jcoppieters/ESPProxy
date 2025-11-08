@@ -73,15 +73,9 @@ void Context::loop() {
   if (this->deviceSocket && this->deviceConnected) {
 
     if (!this->deviceSocket->connected()) {
-      // For some reason the device disconnected
-      Serial.println("[DEVICE] Connection closed");
-      if (this->deviceSocket) {
-        this->deviceSocket->stop();
-        delete this->deviceSocket;
-        this->deviceSocket = nullptr;
-        this->deviceConnected = false;
-      }
-      // Don't cleanup cloud socket, let connection checker handle it
+      // Device disconnected - close entire connection (both device and cloud)
+      Serial.println("[DEVICE] Connection closed - removing entire connection");
+      this->proxy->removeConnection(this);
       return;
     }
     
@@ -146,8 +140,8 @@ void Context::handleDataFromCloud() {
     // Connect to the device and forward this initial data
     this->makeDeviceConnection(buffer, len);
     
-    // This connection is now busy with a device, so we always need a new free connection
-    if (this->deviceConnected) {
+    // This connection is now busy with a device, so create a new free connection if needed
+    if (this->deviceConnected && !this->proxy->hasFreeConnection()) {
       Serial.println("[PROXY] Connection now has device attached - creating new free connection...");
       this->proxy->makeNewCloudConnection();
     }
@@ -163,8 +157,9 @@ void Context::handleDataFromCloud() {
 
 void Context::makeDeviceConnection(uint8_t* data, size_t len) {
   const ProxyConfig& config = this->proxy->getConfig();
-  
-  Serial.print("[PROXY] -> [DEVICE] Connecting to device at ");
+
+  this->proxy->logDirection(TO_DEVICE);
+  Serial.print("Connecting to device at ");
   Serial.print(config.masterAddress);
   Serial.print(":");
   Serial.println(config.masterPort);
@@ -182,7 +177,8 @@ void Context::makeDeviceConnection(uint8_t* data, size_t len) {
       
       if (config.debug) {
         // Send initial data
-        Serial.print("[PROXY] -> [DEVICE] Sending initial ");
+        this->proxy->logDirection(TO_DEVICE);
+        Serial.print("Sending initial ");
         Serial.print(len);
         Serial.print(" bytes: ");
         for (int i = 0; i < len; i++) {
@@ -352,8 +348,7 @@ void ESPProxy::makeNewCloudConnection(int retryCount) {
       if (this->connections[i] == nullptr) {
         this->connections[i] = ctx;
         this->connectionCount++;
-        Serial.print("[PROXY -> CLOUD] New free connection #");
-        Serial.println(this->nextConnectionId);
+        this->logMessage(TO_CLOUD, this->nextConnectionId, "New free connection");
         break;
       }
     }
@@ -369,7 +364,8 @@ void ESPProxy::makeNewCloudConnection(int retryCount) {
   }
 }
 
-void ESPProxy::checkConnections() {  
+void ESPProxy::checkConnections() {
+  
   // Remove inactive connections
   for (int i = 0; i < MAX_CONNECTIONS; i++) {
     if (this->connections[i] && !this->connections[i]->isActive()) {
@@ -418,6 +414,30 @@ int ESPProxy::getActiveConnectionCount() const {
   return count;
 }
 
+String ESPProxy::getConnectionDetailsJSON() const {
+  String json = "";
+  bool first = true;
+  
+  for (int i = 0; i < MAX_CONNECTIONS; i++) {
+    if (this->connections[i]) {
+      if (!first) json += ",";
+      first = false;
+      
+      json += "{";
+      json += "\"slot\":" + String(i) + ",";
+      json += "\"id\":" + String(this->connections[i]->getConnectionId()) + ",";
+      json += "\"cloudSocket\":" + String(this->connections[i]->hasCloudSocket() ? "true" : "false") + ",";
+      json += "\"deviceSocket\":" + String(this->connections[i]->hasDeviceSocket() ? "true" : "false") + ",";
+      json += "\"cloudConnected\":" + String(this->connections[i]->isCloudConnected() ? "true" : "false") + ",";
+      json += "\"deviceConnected\":" + String(this->connections[i]->isDeviceConnected() ? "true" : "false") + ",";
+      json += "\"status\":\"" + String(this->connections[i]->isFree() ? "FREE" : "ACTIVE") + "\"";
+      json += "}";
+    }
+  }
+  
+  return json;
+}
+
 void ESPProxy::cleanStart(bool restart) {
   this->logInfo("Cleaning up connections...");
   
@@ -438,12 +458,6 @@ void ESPProxy::cleanStart(bool restart) {
     this->logInfo("Restarting proxy...");
     delay(100);
     ESP.restart();
-    
-    // if (strlen(this->config.uniqueId) > 0) {
-    //   this->makeNewCloudConnection();
-    // } else {
-    //   this->logError("No unique ID - cannot restart");
-    // }
   }
 }
 

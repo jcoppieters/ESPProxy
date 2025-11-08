@@ -17,7 +17,7 @@ static bool eth_connected = false;
 void onEvent(arduino_event_id_t event) {
   switch (event) {
     case ARDUINO_EVENT_ETH_START:
-      Serial.println("[ETH] Started");
+      Serial.println("[ETH] Started setup");
       // Set hostname
       ETH.setHostname(MDNS_HOSTNAME);
       break;
@@ -110,14 +110,14 @@ void setup() {
 #endif
   
   // Wait for Ethernet connection
-  Serial.println("[ETH] Waiting for connection...");
+  if (!eth_connected) Serial.println("[ETH] Waiting for connection...");
   unsigned long startTime = millis();
   while (!eth_connected && (millis() - startTime < 10000)) {
     delay(500);
   }
   
   if (!eth_connected) {
-    Serial.println("Failed to connect to Ethernet!");
+    Serial.println("[ETH] Failed to connect to Ethernet!");
     return;
   }
   

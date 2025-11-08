@@ -9,46 +9,19 @@
 // Common CSS styles shared by all pages
 static const char COMMON_STYLES[] PROGMEM = R"css(
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; display: flex; align-items: center; justify-content: center;
     }
-    .container {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    .container { background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     }
-    .btn {
-      padding: 15px 40px;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin: 10px;
-      text-decoration: none;
-      display: inline-block;
+    .btn { padding: 15px 40px; border: none; border-radius: 6px; font-size: 16px; font-weight: 500; cursor: pointer; transition: all 0.2s; margin: 10px; text-decoration: none; display: inline-block;
     }
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+    .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;
     }
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
     }
-    .btn-secondary {
-      background: #6c757d;
-      color: white;
+    .btn-secondary { background: #6c757d; color: white;
     }
-    .btn-secondary:hover {
-      background: #5a6268;
+    .btn-secondary:hover { background: #5a6268;
     }
 )css";
 
@@ -66,14 +39,10 @@ inline String generateSavePage() {
   html += COMMON_STYLES;
   
   html += R"rawliteral(
-    .container {
-      max-width: 500px;
-      padding: 40px;
-      text-align: center;
-    }
-    h1 { color: #28a745; margin-bottom: 20px; }
-    p { color: #333; margin-bottom: 30px; line-height: 1.6; }
-    #status { margin-top: 20px; color: #667eea; font-weight: 500; }
+    .container { max-width: 500px; padding: 40px; text-align: center }
+    h1 { color: #28a745; margin-bottom: 20px }
+    p { color: #333; margin-bottom: 30px; line-height: 1.6 }
+    #status { margin-top: 20px; color: #667eea; font-weight: 500 }
   </style>
 </head>
 <body>
@@ -141,137 +110,39 @@ inline String generateConfigPage(
   html += COMMON_STYLES;
   
   html += R"rawliteral(
-    body {
-      padding: 20px;
-      align-items: flex-start;
-    }
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      overflow: hidden;
-    }
-    .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 30px;
-      text-align: center;
-    }
+    body { padding: 20px; align-items: flex-start }
+    .container { max-width: 800px; margin: 0 auto; overflow: hidden }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center }
     .header h1 { font-size: 28px; margin-bottom: 10px; }
     .header p { opacity: 0.9; font-size: 14px; }
-    .status {
-      padding: 20px 30px;
-      background: #f8f9fa;
-      border-bottom: 1px solid #e9ecef;
-    }
-    .status-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 15px;
-    }
-    .status-item {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      border-left: 4px solid #667eea;
-    }
-    .status-item label {
-      display: block;
-      font-size: 12px;
-      color: #6c757d;
-      margin-bottom: 5px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .status-item .value {
-      font-size: 24px;
-      font-weight: bold;
-      color: #333;
-    }
-    .status-item .value.good { color: #28a745; }
-    .status-item .value.warning { color: #ffc107; }
-    .content {
-      padding: 30px;
-    }
-    .section {
-      margin-bottom: 30px;
-    }
-    .section h2 {
-      font-size: 20px;
-      margin-bottom: 15px;
-      color: #333;
-      border-bottom: 2px solid #667eea;
-      padding-bottom: 10px;
-    }
-    .form-group {
-      margin-bottom: 20px;
-    }
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      color: #495057;
-      font-weight: 500;
-      font-size: 14px;
-    }
+    .status { padding: 20px 30px; background: #f8f9fa; border-bottom: 1px solid #e9ecef }
+    .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px }
+    .status-item { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea }
+    .status-item label { display: block; font-size: 12px; color: #6c757d; margin-bottom: 5px; 
+                         text-transform: uppercase; letter-spacing: 0.5px }
+    .status-item .value { font-size: 16px; font-weight: bold; color: #333 }
+    .status-item .value.good { color: #28a745 }
+    .status-item .value.warning { color: #ffc107 }
+    .content { padding: 30px }
+    .section { margin-bottom: 30px }
+    .section h2 { font-size: 20px; margin-bottom: 15px; color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px }
+    .form-group { margin-bottom: 20px }
+    .form-group label { display: block; margin-bottom: 8px; color: #495057; font-weight: 500; font-size: 14px }
     .form-group input[type="text"],
-    .form-group input[type="number"] {
-      width: 100%;
-      padding: 12px;
-      border: 2px solid #e9ecef;
-      border-radius: 6px;
-      font-size: 14px;
-      transition: border-color 0.2s;
-    }
-    .form-group input:focus {
-      outline: none;
-      border-color: #667eea;
-    }
-    .checkbox-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .checkbox-group input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
-      margin: 0;
-      flex-shrink: 0;
-    }
-    .checkbox-group label {
-      margin-bottom: 0;
-      display: inline;
-      cursor: pointer;
-    }
-    .warning-box {
-      background: #fff3cd;
-      border-left: 4px solid #ffc107;
-      padding: 15px;
-      border-radius: 6px;
-      margin: 20px 0;
-      color: #856404;
-    }
-    .warning-box strong { display: block; margin-bottom: 5px; }
-    .button-group {
-      display: flex;
-      gap: 10px;
-      margin-top: 30px;
-    }
-    .btn-primary {
-      flex: 1;
-    }
-    .btn-secondary:hover {
-      transform: translateY(-2px);
-    }
-    .btn-secondary:hover {
-      background: #5a6268;
-    }
-    .footer {
-      text-align: center;
-      padding: 20px;
-      background: #f8f9fa;
-      color: #6c757d;
-      font-size: 12px;
-    }
+    .form-group input[type="number"] { width: 100%; padding: 12px; border: 2px solid #e9ecef; 
+                                       border-radius: 6px; font-size: 14px; transition: border-color 0.2s }
+    .form-group input:focus { outline: none; border-color: #667eea }
+    .checkbox-group { display: flex; align-items: center; gap: 10px }
+    .checkbox-group input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; margin: 0; flex-shrink: 0 }
+    .checkbox-group label { margin-bottom: 0; display: inline; cursor: pointer }
+    .warning-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; 
+                   border-radius: 6px; margin: 20px 0; color: #856404 }
+    .warning-box strong { display: block; margin-bottom: 5px }
+    .button-group { display: flex; gap: 10px; margin-top: 30px } 
+    .btn-primary {flex: 1}
+    .btn-secondary:hover { transform: translateY(-2px) }
+    .btn-secondary:hover { background: #5a6268 }
+    .footer { text-align: center; padding: 20px; background: #f8f9fa; color: #6c757d; font-size: 12px }
   </style>
 </head>
 <body>
@@ -284,23 +155,27 @@ inline String generateConfigPage(
     <div class="status">
       <div class="status-grid">
         <div class="status-item">
-          <label>Active Connections</label>
+          <label>Active</label>
           <div class="value good" id="connCount">-</div>
         </div>
         <div class="status-item">
-          <label>Free Connections</label>
+          <label>Free</label>
           <div class="value" id="freeCount">-</div>
         </div>
         <div class="status-item">
-          <label>Max Connections</label>
+          <label>Max</label>
           <div class="value">)rawliteral" + String(maxConnections) + R"rawliteral(</div>
         </div>
+        <div class="status-item" onclick="toggleConnectionDetails()" style="cursor: pointer;" title="Click to show/hide connection details">
+          <label>Total</label>
+          <div class="value" id="connections">-</div>
+        </div>
         <div class="status-item">
-          <label>Bytes Transferred</label>
+          <label>Transferred</label>
           <div class="value" id="bytesTransferred">-</div>
         </div>
         <div class="status-item">
-          <label>Connections Handled</label>
+          <label>Handled</label>
           <div class="value" id="clientConnections">-</div>
         </div>
         <div class="status-item">
@@ -309,7 +184,16 @@ inline String generateConfigPage(
         </div>
         <div class="status-item">
           <label>IP Address</label>
-          <div class="value" style="font-size: 16px" id="ipAddr">)rawliteral" + ipAddress + R"rawliteral(</div>
+          <div class="value" id="ipAddr">)rawliteral" + ipAddress + R"rawliteral(</div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="connectionDetails" class="content" style="display: none; padding-bottom: 0; margin-top: 20px">
+      <div class="section">
+        <h2>🔌 Connection Details</h2>
+        <div id="connectionList" style="font-family: monospace; font-size: 14px">
+          <!-- Connection details will be populated here -->
         </div>
       </div>
     </div>
@@ -400,6 +284,9 @@ inline String generateConfigPage(
   </div>
   
   <script>
+    let connectionDetailsVisible = false;
+    let lastConnectionData = null;
+    
     function updateStatus() {
       fetch('/status')
         .then(response => response.json())
@@ -409,8 +296,59 @@ inline String generateConfigPage(
           document.getElementById('bytesTransferred').textContent = formatBytes(data.bytesTransferred);
           document.getElementById('clientConnections').textContent = data.clientConnections;
           document.getElementById('uptime').textContent = formatUptime(data.uptime);
+          document.getElementById('connections').textContent = (data.connectionCount+data.freeConnections) + '  🔍';
+          // Store connection data for details view
+          lastConnectionData = data.connections;
+          if (connectionDetailsVisible) {
+            updateConnectionDetails();
+          }
         })
         .catch(err => console.error('Status update failed:', err));
+    }
+    
+    function toggleConnectionDetails() {
+      connectionDetailsVisible = !connectionDetailsVisible;
+      const detailsDiv = document.getElementById('connectionDetails');
+      detailsDiv.style.display = connectionDetailsVisible ? 'block' : 'none';
+      if (connectionDetailsVisible) {
+        updateConnectionDetails();
+      }
+    }
+    
+    function updateConnectionDetails() {
+      const listDiv = document.getElementById('connectionList');
+      if (!lastConnectionData || lastConnectionData.length === 0) {
+        listDiv.innerHTML = '<p style="color: #888;">No connections in array</p>';
+        return;
+      }
+      
+      let html = '<style>th {padding: 8px; text-align: left} td {padding: 8px; } </style>';
+      html += '<table style="width: 100%; border-collapse: collapse;">';
+      html += '<tr style="border-bottom: 2px solid #ddd; font-weight: bold;">';
+      html += '<th style="">Slot</th>';
+      html += '<th>Conn ID</th>';
+      html += '<th>Status</th>';
+      html += '<th>Cloud Socket</th>';
+      html += '<th>Cloud Conn</th>';
+      html += '<th>Device Socket</th>';
+      html += '<th>Device Conn</th>';
+      html += '</tr>';
+      
+      lastConnectionData.forEach(conn => {
+        const statusColor = conn.status === 'FREE' ? '#4CAF50' : '#2196F3';
+        html += '<tr style="border-bottom: 1px solid #eee;">';
+        html += '<td>' + conn.slot + '</td>';
+        html += '<td>#' + conn.id + '</td>';
+        html += '<td style="color: ' + statusColor + '; font-weight: bold;">' + conn.status + '</td>';
+        html += '<td style="text-align: center">' + (conn.cloudSocket ? '✓' : '✗') + '</td>';
+        html += '<td style="text-align: center">' + (conn.cloudConnected ? '✓' : '✗') + '</td>';
+        html += '<td style="text-align: center">' + (conn.deviceSocket ? '✓' : '✗') + '</td>';
+        html += '<td style="text-align: center">' + (conn.deviceConnected ? '✓' : '✗') + '</td>';
+        html += '</tr>';
+      });
+      
+      html += '</table>';
+      listDiv.innerHTML = html;
     }
     
     function formatBytes(bytes) {
