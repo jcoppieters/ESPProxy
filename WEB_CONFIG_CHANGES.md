@@ -139,27 +139,18 @@ These are default values used on first boot:
 
 ## Code Changes Summary
 
-### Files Modified:
+### Files:
 - `include/config.h` - Added web server and mDNS config
 - `include/ESPProxy.h` - Added getConfig() method
-- `include/WebConfig.h` - Added mDNS parameter to load/save
+- `include/WebConfig.h` - Web server implementation & mDNS
 - `src/ESPProxy.cpp` - Added getFreeConnectionCount()
-- `src/WebConfig.cpp` - Use running config, added mDNS field
+- `src/WebConfig.cpp` - Web server implementation, use running config, added mDNS field
 - `src/main.cpp` - Updated config loading flow
+- `src/ConfigPage.h` - Web config page implementation
 
-### Files Created:
-- `include/WebConfig.h` - Web configuration class
-- `src/WebConfig.cpp` - Web server implementation
+
 
 ## Memory Usage
 
-- RAM: 14.4% (47,104 bytes)
-- Flash: 66.7% (874,405 bytes)
-- Still plenty of room for future features
-
-## Next Steps
-
-1. Upload firmware to ESP32
-2. Test all configuration changes
-3. Verify mDNS hostname changes work
-4. Test with multiple ESP32 devices if available
+- RAM: 14.4% (47,112 bytes from 32,7680 bytes)
+- Flash: 66.7% (882,761 bytes from 131,0720 bytes)

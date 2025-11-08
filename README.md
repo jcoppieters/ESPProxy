@@ -30,15 +30,9 @@ When monitoring with debug mode enabled (via web interface or `DEBUG_MODE=true`)
 [DEVICE] -> [CLOUD] (conn #1) Forwarding 8 bytes: [72,1]
 ```
 - Message: `[215,1]` (request) / `[72,1]` (response)
-- Can happen frequently (every few seconds) in bursts
+- Can happen frequently (every few seconds)
 - Occur on **active connections** (device attached)
 - These are NOT proxy heartbeats - they're being forwarded between cloud client and device
-- This is normal behavior - the cloud client is checking device health
-
-**Note:** The frequent `[215,1]/[72,1]` messages are expected and indicate an active cloud client connection to your device.
-
-**ERROR:**
-NO, NO: we shouldn't have so many heartbeats !!
 
 
 
@@ -67,38 +61,16 @@ The wiring depends on your specific hardware:
 - No additional wiring needed - Ethernet is built-in
 - Uses RMII interface with LAN8720 PHY
 
-#### ESP32 with W5500 Module
-```
-ESP32          W5500
------          -----
-GPIO23   →     MOSI
-GPIO19   →     MISO
-GPIO18   →     SCK
-GPIO5    →     CS
-3.3V     →     VCC
-GND      →     GND
-```
-
-#### ESP32 with ENC28J60 Module
-```
-ESP32          ENC28J60
------          --------
-GPIO23   →     SI (MOSI)
-GPIO19   →     SO (MISO)
-GPIO18   →     SCK
-GPIO5    →     CS
-3.3V     →     VCC
-GND      →     GND
-```
 
 ## Software Requirements
 
 ### Arduino IDE Setup
 
-1. **Install Arduino IDE** (version 1.8.x or 2.x)
-   - Download from https://www.arduino.cc/en/software
+1. **Install Options**
+   - Download Arduino IDE** (version 1.8.x or 2.x) from https://www.arduino.cc/en/software
+   - Use VSCode with PlatformIO plugin.
 
-2. **Install ESP32 Board Support**
+2. **Install ESP32 Board Support in Arduino IDE**
    - Open Arduino IDE
    - Go to File → Preferences
    - Add to "Additional Board Manager URLs":
@@ -108,7 +80,7 @@ GND      →     GND
    - Go to Tools → Board → Boards Manager
    - Search for "esp32" and install "ESP32 by Espressif Systems"
 
-3. **Install Required Libraries**
+3. **Install Required Libraries for Arduino IDE**
    - Go to Sketch → Include Library → Manage Libraries
    - Install the appropriate Ethernet library for your hardware:
      - **For WT32-ETH01 / Olimex**: No additional library needed (built-in)
