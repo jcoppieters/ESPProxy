@@ -7,20 +7,20 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define VERSION "1.0.0 R1"
+#define VERSION "1.0.1 R1"
 
 // ============================================
 // Network Configuration
 // ============================================
 
-// Uncomment to use DHCP instead of static IP
-#define USE_DHCP
+// Set to true to use DHCP, false for static IP
+#define USE_DHCP      true
 
-// Static IP Configuration (used if USE_DHCP is not defined)
-#define LOCAL_IP      "192.168.1.177"
-#define GATEWAY_IP    "192.168.1.1"
+// Static IP Configuration (only used if USE_DHCP is false)
+#define LOCAL_IP      "192.168.0.143"
+#define GATEWAY_IP    "192.168.0.1"
 #define SUBNET_MASK   "255.255.255.0"
-#define DNS_SERVER    "192.168.1.1"
+#define DNS_SERVER    "8.8.8.8"
 
 // ============================================
 // Cloud Server Configuration
@@ -68,9 +68,6 @@
 // ============================================
 // Web Server Configuration
 // ============================================
-
-// Enable web configuration interface
-#define ENABLE_WEB_CONFIG true
 
 // Web server port
 #define WEB_SERVER_PORT 80

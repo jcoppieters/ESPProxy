@@ -16,7 +16,7 @@ public:
   void loop();  // Must be called regularly to handle HTTP requests
   
   // Load configuration from NVRAM
-  bool loadConfig(ProxyConfig& config, String& mdnsHostname);
+  bool loadConfig(ProxyConfig& config);
   
   // Save configuration to NVRAM
   bool saveConfig(const ProxyConfig& config, const String& mdnsHostname);
@@ -45,8 +45,8 @@ private:
   String generateStatusJSON();
   
   // Configuration management
-  void loadIntParameter(const char* key, int& value, int defaultValue);
   void loadStringParameter(const char* key, char* value, size_t maxLen, const char* defaultValue);
+  void loadUShortParameter(const char* key, uint16_t& value, uint16_t defaultValue);
   void loadBoolParameter(const char* key, bool& value, bool defaultValue);
 };
 

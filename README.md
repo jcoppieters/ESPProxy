@@ -2,6 +2,10 @@
 
 A C++ implementation of the Duotecno cloud proxy for ESP32 with Ethernet, translated from the original TypeScript version.
 
+## 🚀 Quick Start
+
+**Want to deploy this to your ESP32?** See **[DEPLOYMENT.md](DEPLOYMENT.md)** for step-by-step instructions.
+
 ## Overview
 
 This proxy server:

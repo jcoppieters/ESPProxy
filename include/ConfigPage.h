@@ -5,6 +5,7 @@
 #include <ETH.h>
 #include "ESPProxy.h"
 #include "config.h"
+#include "logo.h"
 
 // Common CSS styles shared by all pages
 static const char COMMON_STYLES[] PROGMEM = R"css(
@@ -111,7 +112,7 @@ inline String generateConfigPage(
   
   html += R"rawliteral(
     body { padding: 20px; align-items: flex-start }
-    .container { max-width: 800px; margin: 0 auto; overflow: hidden }
+    .container { max-width: 1000px; width: 100%; margin: 0 auto; overflow: hidden }
     .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center }
     .header h1 { font-size: 28px; margin-bottom: 10px; }
     .header p { opacity: 0.9; font-size: 14px; }
@@ -143,13 +144,25 @@ inline String generateConfigPage(
     .btn-secondary:hover { transform: translateY(-2px) }
     .btn-secondary:hover { background: #5a6268 }
     .footer { text-align: center; padding: 20px; background: #f8f9fa; color: #6c757d; font-size: 12px }
+    .header-content { display: flex; align-items: center; gap: 20px }
+    .header-text { flex: 1 }
+    .header-text h1 { font-size: 28px; margin-bottom: 10px; text-align: left }
+    .header-text p { opacity: 0.9; font-size: 14px; text-align: left }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>🌐 Duotecno Cloud Proxy</h1>
-      <p>ESP32 Network Configuration Interface</p>
+      <div class="header-content">)rawliteral";
+  
+  html += DUOTECNO_LOGO_SVG;
+  
+  html += R"rawliteral(
+        <div class="header-text">
+          <h1>Duotecno Cloud Proxy</h1>
+          <p>ESP32 Configuration Interface</p>
+        </div>
+      </div>
     </div>
     
     <div class="status">
@@ -233,7 +246,7 @@ inline String generateConfigPage(
           <label for="mdnsHostname">mDNS Hostname (without .local)</label>
           <input type="text" id="mdnsHostname" name="mdnsHostname" value=")rawliteral" + String(mdnsHostname) + R"rawliteral(" required pattern="[a-z0-9\-]+">
           <small style="color: #6c757d; font-size: 12px; display: block; margin-top: 5px;">
-            Access device at http://<span style="color: #667eea; font-weight: bold;">)rawliteral" + String(mdnsHostname) + R"rawliteral(</span>.local
+            Access device at <span style="color: #667eea; font-weight: bold;">http://)rawliteral" + String(mdnsHostname) + R"rawliteral(.local</span>
           </small>
         </div>
       </div>
@@ -246,29 +259,33 @@ inline String generateConfigPage(
         </div>
         <div class="form-group">
           <label>Maximum Connections: )rawliteral" + String(maxConnections) + R"rawliteral( (compile-time setting)</label>
-        </div>
-        <div class="form-group">
           <label>Connection Check Interval: )rawliteral" + String(connectionCheckIntervalSeconds) + R"rawliteral(s (compile-time setting)</label>
         </div>
       </div>
-      
-      <div class="section">
-        <h2>ℹ️ Current Configuration Source</h2>
-        <div class="warning-box" style="background: #d1ecf1; border-left-color: #0c5460; color: #0c5460;">
-          <strong>Configuration Status</strong>
-          These values are currently running on the device. After saving new values, you must restart the ESP32 for changes to take effect.
-        </div>
-      </div>
-      
+
       <div class="section">
         <h2>🌐 Network Settings</h2>
-        <div class="warning-box">
-          <strong>⚠️ Not Yet Implemented</strong>
-          Network settings (DHCP, Static IP, DNS, Gateway, Subnet Mask) cannot be changed via web interface yet. 
-          Please edit config.h and recompile to change these settings.
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="useDHCP" name="useDHCP" value="true" onchange="toggleStaticIPFields()" )rawliteral" + String(config->useDHCP ? "checked" : "") + R"rawliteral(>
+          <label for="useDHCP">Use DHCP (automatic IP configuration)</label>
         </div>
-        <div class="form-group">
-          <label>Current Mode: )rawliteral" + String(useDHCP ? "DHCP" : "Static IP") + R"rawliteral(</label>
+        <div id="staticIPFields" style=")rawliteral" + String(config->useDHCP ? "display: none;" : "") + R"rawliteral(">
+          <div class="form-group">
+            <label for="staticIP">Static IP Address</label>
+            <input type="text" id="staticIP" name="staticIP" value=")rawliteral" + String(config->staticIP) + R"rawliteral(" pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$" placeholder="192.168.1.100">
+          </div>
+          <div class="form-group">
+            <label for="gateway">Gateway Address</label>
+            <input type="text" id="gateway" name="gateway" value=")rawliteral" + String(config->gateway) + R"rawliteral(" pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$" placeholder="192.168.1.1">
+          </div>
+          <div class="form-group">
+            <label for="subnet">Subnet Mask</label>
+            <input type="text" id="subnet" name="subnet" value=")rawliteral" + String(config->subnet) + R"rawliteral(" pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$" placeholder="255.255.255.0">
+          </div>
+          <div class="form-group">
+            <label for="dns">DNS Server</label>
+            <input type="text" id="dns" name="dns" value=")rawliteral" + String(config->dns) + R"rawliteral(" pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$" placeholder="8.8.8.8">
+          </div>
         </div>
       </div>
       
@@ -279,7 +296,7 @@ inline String generateConfigPage(
     </form>
     
     <div class="footer">
-      Version )rawliteral" + VERSION + R"rawliteral( - ESP32 Duotecno Cloud Proxy - 2025
+      Version )rawliteral" + VERSION + R"rawliteral( - Duotecno Cloud Proxy © 2025
     </div>
   </div>
   
@@ -366,6 +383,22 @@ inline String generateConfigPage(
       if (days > 0) return days + 'd ' + hours + 'h';
       if (hours > 0) return hours + 'h ' + mins + 'm';
       return mins + 'm';
+    }
+    
+    function toggleStaticIPFields() {
+      const useDHCP = document.getElementById('useDHCP').checked;
+      const staticIPFields = document.getElementById('staticIPFields');
+      staticIPFields.style.display = useDHCP ? 'none' : 'block';
+      
+      // Update required attribute based on DHCP setting
+      const staticIPInputs = staticIPFields.querySelectorAll('input');
+      staticIPInputs.forEach(input => {
+        if (useDHCP) {
+          input.removeAttribute('required');
+        } else {
+          input.setAttribute('required', 'required');
+        }
+      });
     }
     
     // Update status every 5 seconds

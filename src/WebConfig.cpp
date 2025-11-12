@@ -4,11 +4,8 @@
 
 WebConfig::WebConfig(ESPProxy* proxy) {
   this->proxy = proxy;
-  this->server = nullptr;
-  
-  // Initialize Preferences early so loadConfig() can use it
-  this->preferences.begin("duotecno", false); // false = read/write mode
-  Serial.println("[CONFIG] Preferences initialized");
+  this->preferences.begin("duotecno", false);
+  // Note: loadConfig() is called separately in main.cpp with ProxyConfig parameter
 }
 
 WebConfig::~WebConfig() {
@@ -70,21 +67,19 @@ String WebConfig::getMDNSHostname() {
   return this->currentMDNS;
 }
 
-bool WebConfig::loadConfig(ProxyConfig& config, String& mdnsHostname) {
+bool WebConfig::loadConfig(ProxyConfig& config) {
   if (this->isFirstBoot()) {
-    Serial.println("[CONFIG] First boot - using default config");
-    return false;
+    Serial.println("[CONFIG] First boot - loading compile-time defaults");
+  } else {
+    Serial.println("[CONFIG] Configuration from NVRAM (with compile-time fallbacks)");
   }
   
-  Serial.println("[CONFIG] NVRAM Contents");
-  Serial.println("[CONFIG] =======");
-
   // Load all parameters
   this->loadStringParameter("cloudServer", config.cloudServer, sizeof(config.cloudServer), CLOUD_SERVER);
   Serial.print("[CONFIG] === cloudServer: ");
   Serial.println(config.cloudServer);
   
-  this->loadIntParameter("cloudPort", (int&)config.cloudPort, CLOUD_PORT);
+  this->loadUShortParameter("cloudPort", config.cloudPort, CLOUD_PORT);
   Serial.print("[CONFIG] === cloudPort: ");
   Serial.println(config.cloudPort);
   
@@ -92,7 +87,7 @@ bool WebConfig::loadConfig(ProxyConfig& config, String& mdnsHostname) {
   Serial.print("[CONFIG] === masterAddress: ");
   Serial.println(config.masterAddress);
   
-  this->loadIntParameter("masterPort", (int&)config.masterPort, MASTER_PORT);
+  this->loadUShortParameter("masterPort", config.masterPort, MASTER_PORT);
   Serial.print("[CONFIG] === masterPort: ");
   Serial.println(config.masterPort);
   
@@ -104,11 +99,27 @@ bool WebConfig::loadConfig(ProxyConfig& config, String& mdnsHostname) {
   Serial.print("[CONFIG] === debug: ");
   Serial.println(config.debug ? "true" : "false");
   
-  mdnsHostname = this->preferences.getString("mdnsHostname", MDNS_HOSTNAME);
-  Serial.print("[CONFIG] === mdnsHostname: ");
-  Serial.println(mdnsHostname);
+  // Load network configuration from NVRAM with config.h defaults
+  this->loadBoolParameter("useDHCP", config.useDHCP, USE_DHCP);
+  Serial.print("[CONFIG] === useDHCP: ");
+  Serial.println(config.useDHCP ? "true" : "false");
   
-  Serial.println("[CONFIG] =======");
+  this->loadStringParameter("staticIP", config.staticIP, sizeof(config.staticIP), LOCAL_IP);
+  Serial.print("[CONFIG] === staticIP: ");
+  Serial.println(config.staticIP);
+  
+  this->loadStringParameter("gateway", config.gateway, sizeof(config.gateway), GATEWAY_IP);
+  Serial.print("[CONFIG] === gateway: ");
+  Serial.println(config.gateway);
+  
+  this->loadStringParameter("subnet", config.subnet, sizeof(config.subnet), SUBNET_MASK);
+  Serial.print("[CONFIG] === subnet: ");
+  Serial.println(config.subnet);
+  
+  this->loadStringParameter("dns", config.dns, sizeof(config.dns), DNS_SERVER);
+  Serial.print("[CONFIG] === dns: ");
+  Serial.println(config.dns);
+  
   return true;
 }
 
@@ -122,6 +133,14 @@ bool WebConfig::saveConfig(const ProxyConfig& config, const String& mdnsHostname
   this->preferences.putString("uniqueId", config.uniqueId);
   this->preferences.putBool("debug", config.debug);
   this->preferences.putString("mdnsHostname", mdnsHostname);
+  
+  // Save network configuration
+  this->preferences.putBool("useDHCP", config.useDHCP);
+  this->preferences.putString("staticIP", config.staticIP);
+  this->preferences.putString("gateway", config.gateway);
+  this->preferences.putString("subnet", config.subnet);
+  this->preferences.putString("dns", config.dns);
+  
   this->preferences.putBool("configured", true);
   
   Serial.println("[CONFIG] Configuration saved successfully");
@@ -129,26 +148,46 @@ bool WebConfig::saveConfig(const ProxyConfig& config, const String& mdnsHostname
 }
 
 void WebConfig::loadStringParameter(const char* key, char* value, size_t maxLen, const char* defaultValue) {
-  String stored = this->preferences.getString(key, defaultValue);
-  strncpy(value, stored.c_str(), maxLen - 1);
-  value[maxLen - 1] = '\0';
+  if (this->preferences.isKey(key)) {
+    String stored = this->preferences.getString(key, defaultValue);
+    strncpy(value, stored.c_str(), maxLen - 1);
+    value[maxLen - 1] = '\0';
+  } else {
+    // Use default
+    strncpy(value, defaultValue, maxLen - 1);
+    value[maxLen - 1] = '\0';
+  }
 }
 
-void WebConfig::loadIntParameter(const char* key, int& value, int defaultValue) {
-  value = this->preferences.getInt(key, defaultValue);
+void WebConfig::loadUShortParameter(const char* key, uint16_t& value, uint16_t defaultValue) {
+  if (this->preferences.isKey(key)) {
+   value = this->preferences.getUShort(key, defaultValue);
+  } else {
+    value = defaultValue;
+  }
 }
 
 void WebConfig::loadBoolParameter(const char* key, bool& value, bool defaultValue) {
-  value = this->preferences.getBool(key, defaultValue);
+  if (this->preferences.isKey(key)) {
+   value = this->preferences.getBool(key, defaultValue);
+  } else {
+    value = defaultValue;
+  }
 }
 
 void WebConfig::handleRoot() {
   String html = this->generateHTML();
-  this->server->send(200, "text/html", html);
+  if (this->proxy && this->proxy->getConfig().debug) {
+    Serial.println("[WEB] Serving configuration page");
+  }
+ this->server->send(200, "text/html", html);
 }
 
 void WebConfig::handleStatus() {
   String json = this->generateStatusJSON();
+  if (this->proxy && this->proxy->getConfig().debug) {
+    Serial.println("[WEB] Serving status JSON");
+  }
   this->server->send(200, "application/json", json);
 }
 
@@ -176,6 +215,21 @@ void WebConfig::handleSave() {
   }
   // Checkbox: present in POST = checked (true), absent = unchecked (false)
   newConfig.debug = this->server->hasArg("debug");
+  
+  // Parse network configuration
+  newConfig.useDHCP = this->server->hasArg("useDHCP");
+  if (this->server->hasArg("staticIP")) {
+    strncpy(newConfig.staticIP, this->server->arg("staticIP").c_str(), sizeof(newConfig.staticIP) - 1);
+  }
+  if (this->server->hasArg("gateway")) {
+    strncpy(newConfig.gateway, this->server->arg("gateway").c_str(), sizeof(newConfig.gateway) - 1);
+  }
+  if (this->server->hasArg("subnet")) {
+    strncpy(newConfig.subnet, this->server->arg("subnet").c_str(), sizeof(newConfig.subnet) - 1);
+  }
+  if (this->server->hasArg("dns")) {
+    strncpy(newConfig.dns, this->server->arg("dns").c_str(), sizeof(newConfig.dns) - 1);
+  }
     
   // Get mDNS hostname
   String newMDNS = this->currentMDNS;
@@ -206,13 +260,23 @@ void WebConfig::handleRestart() {
 }
 
 void WebConfig::handleNotFound() {
-  this->server->send(404, "text/plain", "These are not the droids you're looking for.");
+  // Log the request for debugging
+  String uri = this->server->uri();
+  String method = (this->server->method() == HTTP_GET) ? "GET" : "POST";
+  
+  if (this->proxy && this->proxy->getConfig().debug) {
+    Serial.print("[WEB] 404 Not Found: ");
+    Serial.print(method);
+    Serial.print(" ");
+    Serial.println(uri);
+  }
+
+  this->server->send(404, "text/plain", "404 These are not the droids you're looking for: " + method + " " + uri);
 }
 
 String WebConfig::generateStatusJSON() {
   int activeCount = this->proxy ? this->proxy->getActiveConnectionCount() : 0;
   int freeCount = this->proxy ? this->proxy->getFreeConnectionCount() : 0;
-
   
   String json = "{";
   json += "\"connectionCount\":" + String(activeCount) + ",";
@@ -224,8 +288,26 @@ String WebConfig::generateStatusJSON() {
   json += "\"ip\":\"" + ETH.localIP().toString() + "\",";
   json += "\"connections\":[";
   
+  // Generate connection details JSON inline
   if (this->proxy) {
-    json += this->proxy->getConnectionDetailsJSON();
+    bool first = true;
+    for (int i = 0; i < MAX_CONNECTIONS; i++) {
+      Context* conn = this->proxy->getConnection(i);
+      if (conn) {
+        if (!first) json += ",";
+        first = false;
+        
+        json += "{";
+        json += "\"slot\":" + String(i) + ",";
+        json += "\"id\":" + String(conn->getConnectionId()) + ",";
+        json += "\"cloudSocket\":" + String(conn->hasCloudSocket() ? "true" : "false") + ",";
+        json += "\"deviceSocket\":" + String(conn->hasDeviceSocket() ? "true" : "false") + ",";
+        json += "\"cloudConnected\":" + String(conn->isCloudConnected() ? "true" : "false") + ",";
+        json += "\"deviceConnected\":" + String(conn->isDeviceConnected() ? "true" : "false") + ",";
+        json += "\"status\":\"" + String(conn->isFree() ? "FREE" : "ACTIVE") + "\"";
+        json += "}";
+      }
+    }
   }
   
   json += "]";
@@ -240,8 +322,22 @@ String WebConfig::generateHTML() {
     currentConfig = this->proxy->getConfig();
   } else {
     // Fallback: load from NVRAM (shouldn't happen normally)
-    String tempMDNS;
-    this->loadConfig(currentConfig, tempMDNS);
+    this->loadConfig(currentConfig);
+  }
+  
+  // Ensure static IP fields have values (from config.h if not set in NVRAM)
+  // This way they're always prefilled even when using DHCP
+  if (strlen(currentConfig.staticIP) == 0) {
+    strncpy(currentConfig.staticIP, LOCAL_IP, sizeof(currentConfig.staticIP) - 1);
+  }
+  if (strlen(currentConfig.gateway) == 0) {
+    strncpy(currentConfig.gateway, GATEWAY_IP, sizeof(currentConfig.gateway) - 1);
+  }
+  if (strlen(currentConfig.subnet) == 0) {
+    strncpy(currentConfig.subnet, SUBNET_MASK, sizeof(currentConfig.subnet) - 1);
+  }
+  if (strlen(currentConfig.dns) == 0) {
+    strncpy(currentConfig.dns, DNS_SERVER, sizeof(currentConfig.dns) - 1);
   }
   
   // Use the template function to generate HTML

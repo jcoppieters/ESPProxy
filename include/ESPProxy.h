@@ -38,6 +38,13 @@ struct ProxyConfig {
   uint16_t masterPort;    // Local master port
   char uniqueId[64];      // Unique ID for the device
   bool debug;             // Debug mode
+  
+  // Network configuration
+  bool useDHCP;           // Use DHCP (true) or static IP (false)
+  char staticIP[16];      // Static IP address
+  char gateway[16];       // Gateway address
+  char subnet[16];        // Subnet mask
+  char dns[16];           // DNS server
 };
 
 // Forward declaration
@@ -111,16 +118,20 @@ public:
   void loop();  // Must be called regularly in Arduino loop()
   
   void setDebug(bool enabled) { debug = enabled; }
-  void makeNewCloudConnection(int retryCount = 1);  // Public: can be called to create new connection
-  bool hasFreeConnection();  // Public: check if we have a free connection available
+  void makeNewCloudConnection(int retryCount = 1);  // can be called to create new connection
+  bool hasFreeConnection();                         // check if we have a free connection available
   
   // Status getters for web interface
   int getConnectionCount() const { return connectionCount; }
   int getFreeConnectionCount() const;
-  int getActiveConnectionCount() const;  // Returns count of connections with device attached
+  int getActiveConnectionCount() const;             // Returns count of connections with device attached
   int getMaxConnections() const { return MAX_CONNECTIONS; }
   const ProxyConfig& getConfig() const { return config; }
-  String getConnectionDetailsJSON() const;  // Returns JSON array with connection details
+  
+  // Connection array access (for web interface)
+  Context* getConnection(int index) const { 
+    return (index >= 0 && index < MAX_CONNECTIONS) ? connections[index] : nullptr; 
+  }
   
   // Statistics getters
   unsigned long getTotalBytesTransferred() const { return totalBytesTransferred; }

@@ -380,8 +380,9 @@ void ESPProxy::checkConnections() {
   if (this->hasFreeConnection()) {
     this->logDebug("Found free connection - OK");
   } else {
-    this->logError("No free connections available - restarting");
-    this->cleanStart(true);
+    this->logError("No free connections available - creating new connection...");
+    // Try to create a new connection instead of restarting
+    this->makeNewCloudConnection();
   }
 }
 
@@ -412,30 +413,6 @@ int ESPProxy::getActiveConnectionCount() const {
     }
   }
   return count;
-}
-
-String ESPProxy::getConnectionDetailsJSON() const {
-  String json = "";
-  bool first = true;
-  
-  for (int i = 0; i < MAX_CONNECTIONS; i++) {
-    if (this->connections[i]) {
-      if (!first) json += ",";
-      first = false;
-      
-      json += "{";
-      json += "\"slot\":" + String(i) + ",";
-      json += "\"id\":" + String(this->connections[i]->getConnectionId()) + ",";
-      json += "\"cloudSocket\":" + String(this->connections[i]->hasCloudSocket() ? "true" : "false") + ",";
-      json += "\"deviceSocket\":" + String(this->connections[i]->hasDeviceSocket() ? "true" : "false") + ",";
-      json += "\"cloudConnected\":" + String(this->connections[i]->isCloudConnected() ? "true" : "false") + ",";
-      json += "\"deviceConnected\":" + String(this->connections[i]->isDeviceConnected() ? "true" : "false") + ",";
-      json += "\"status\":\"" + String(this->connections[i]->isFree() ? "FREE" : "ACTIVE") + "\"";
-      json += "}";
-    }
-  }
-  
-  return json;
 }
 
 void ESPProxy::cleanStart(bool restart) {
@@ -540,8 +517,8 @@ void ESPProxy::logData(ConnectionDirection direction, int len, const uint8_t* bu
 
 void ESPProxy::logMessage(ConnectionDirection direction, int connectionId, 
                           const char* message, const char* extraStr) {
+
   this->logDirection(direction);
-  
   if (connectionId) {
     Serial.print("conn #");
     Serial.print(connectionId);

@@ -51,12 +51,12 @@ void onEvent(arduino_event_id_t event) {
       break;
 
     case ARDUINO_EVENT_ETH_DISCONNECTED:
-      Serial.println("ETH Disconnected");
+      Serial.println("[ETH] ETH-Disconnected");
       eth_connected = false;
       break;
 
     case ARDUINO_EVENT_ETH_STOP:
-      Serial.println("ETH Stopped");
+      Serial.println("[ETH] ETH-Stopped");
       eth_connected = false;
       break;
 
@@ -68,14 +68,15 @@ void onEvent(arduino_event_id_t event) {
 // Proxy instance
 ESPProxy proxy;
 
-#if ENABLE_WEB_CONFIG
 // Web configuration instance
 WebConfig* webConfig = nullptr;
-#endif
 
 void setup() {
   Serial.begin(115200);
   delay(500); // Small delay for serial to stabilize
+  
+  // Reduce unnecessary error logging
+  esp_log_level_set("WebServer", ESP_LOG_WARN);    // Only show warnings and errors
   
 #if ENABLE_LED
   // Initialize LED (only if enabled)
@@ -93,27 +94,45 @@ void setup() {
     
   // Initialize Ethernet for Olimex ESP32-POE uses LAN8720 PHY
   // PHY_ADDR = 0, PHY_POWER = 12, PHY_MDC = 23, PHY_MDIO = 18, PHY_TYPE = ETH_PHY_LAN8720
+  Serial.println("[ETH] Initializing Ethernet hardware...");
   ETH.begin(0, 12, 23, 18, ETH_PHY_LAN8720, ETH_CLOCK_GPIO17_OUT);
   
-#ifndef USE_DHCP
+  // Give PHY time to stabilize after power-up
+  delay(100);
+  
+  // Load configuration (from NVRAM or defaults from config.h)
+  ProxyConfig config;
+  webConfig = new WebConfig(&proxy);
+  webConfig->loadConfig(config);
+  
   // Configure static IP if not using DHCP
-  IPAddress ip;
-  ip.fromString(LOCAL_IP);
-  IPAddress gateway;
-  gateway.fromString(GATEWAY_IP);
-  IPAddress subnet;
-  subnet.fromString(SUBNET_MASK);
-  IPAddress dns;
-  dns.fromString(DNS_SERVER);
+  if (!config.useDHCP && strlen(config.staticIP) > 0) {
+    Serial.println("[ETH] Configuring static IP...");
+    IPAddress ip;
+    ip.fromString(config.staticIP);
+    IPAddress gateway;
+    gateway.fromString(config.gateway);
+    IPAddress subnet;
+    subnet.fromString(config.subnet);
+    IPAddress dns;
+    dns.fromString(config.dns);
+    
+    if (!ETH.config(ip, gateway, subnet, dns)) {
+      Serial.println("[ETH] Failed to configure static IP!");
+    }
+  } else {
+    Serial.println("[ETH] Using DHCP for IP configuration...");
+  }
   
-  ETH.config(ip, gateway, subnet, dns);
-#endif
-  
-  // Wait for Ethernet connection
-  if (!eth_connected) Serial.println("[ETH] Waiting for connection...");
-  unsigned long startTime = millis();
-  while (!eth_connected && (millis() - startTime < 10000)) {
-    delay(500);
+  // Wait for Ethernet connection (GOT_IP event) if not already connected
+  if (!eth_connected) {
+    Serial.println("[ETH] Waiting for IP address...");
+    unsigned long startTime = millis();
+    while (!eth_connected && (millis() - startTime < 15000)) {  // Increased timeout to 15 seconds
+      delay(500);
+      Serial.print(".");
+    }
+    Serial.println();
   }
   
   if (!eth_connected) {
@@ -121,59 +140,28 @@ void setup() {
     return;
   }
   
-  // Configure proxy
-  ProxyConfig config;
-  
-#if ENABLE_WEB_CONFIG
-  // Initialize web config (for loading/saving)
-  webConfig = new WebConfig(&proxy);
-  
-  // Try to load config from NVRAM, fallback to config.h defaults
-  String mdnsHostname;
-  if (!webConfig->loadConfig(config, mdnsHostname)) {
-    Serial.println("[CONFIG] Using default configuration from config.h");
-    strncpy(config.cloudServer, CLOUD_SERVER, sizeof(config.cloudServer) - 1);
-    config.cloudPort = CLOUD_PORT;
-    strncpy(config.masterAddress, MASTER_ADDRESS, sizeof(config.masterAddress) - 1);
-    config.masterPort = MASTER_PORT;
-    strncpy(config.uniqueId, UNIQUE_ID, sizeof(config.uniqueId) - 1);
-    config.debug = DEBUG_MODE;
-    mdnsHostname = MDNS_HOSTNAME;
-  }
-#else
-  // Load config from config.h
-  strncpy(config.cloudServer, CLOUD_SERVER, sizeof(config.cloudServer) - 1);
-  config.cloudPort = CLOUD_PORT;
-  strncpy(config.masterAddress, MASTER_ADDRESS, sizeof(config.masterAddress) - 1);
-  config.masterPort = MASTER_PORT;
-  strncpy(config.uniqueId, UNIQUE_ID, sizeof(config.uniqueId) - 1);
-  config.debug = DEBUG_MODE;
-#endif
+  // Config was already loaded earlier for network configuration
   
   // Start proxy
   if (proxy.begin(config)) {
-    Serial.println("[INFO] ESP Proxy started successfully!");
+    proxy.logInfo("ESP Proxy started successfully!");
   } else {
-    Serial.println("[ERROR] ESP Proxy Failed to start!");
+    proxy.logError("ESP Proxy Failed to start!");
   }
-  
-#if ENABLE_WEB_CONFIG
-  // Start web configuration interface
+
+    // Start web configuration interface
   if (webConfig->begin()) {
-    Serial.println("[INFO] =======");
-    Serial.println("[INFO] === Web configuration interface ready!");
-      Serial.print("[INFO] === Access at: http://");
+    proxy.logInfo("=== Web configuration interface ready!");
+    Serial.print("[INFO] === Access at: http://");
       Serial.print(webConfig->getMDNSHostname());
       Serial.print(".local");
       Serial.print(" - http://");
-    Serial.println(ETH.localIP());
+      Serial.println(ETH.localIP());
   } else {
-    Serial.println("Failed to start web configuration interface!");
+    proxy.logError("Failed to start web configuration interface!");
   }
-#endif
-  
-  Serial.println("[INFO] =======");
-  Serial.print("[INFO] === Publishing '"); 
+
+  Serial.print("[INFO] === Published '"); 
     Serial.print(config.uniqueId);
     Serial.print("' to: ");
     Serial.print(config.cloudServer);
@@ -183,20 +171,16 @@ void setup() {
     Serial.print(config.masterAddress); 
     Serial.print(":"); 
     Serial.print(config.masterPort); 
-    Serial.println("...");
-  Serial.println("[INFO] =======");
 }
 
 void loop() {
   // Run the proxy main loop
   proxy.loop();
   
-#if ENABLE_WEB_CONFIG
   // Handle web server requests
   if (webConfig) {
     webConfig->loop();
   }
-#endif
   
   // Small delay to prevent watchdog issues
   delay(10);
